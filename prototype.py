@@ -100,7 +100,7 @@ def max_curvature(src, mask, sigma=8):
 # --- Main ---
 
 # Load and process the image
-image_path = 'data/002/L_Fore/02.bmp'
+image_path = 'data/001/L_Fore/01.bmp'
 image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
 if image is None:
@@ -110,9 +110,17 @@ if image is None:
 vein_mask, masked_image, clahe_image, blurred_image, sharp_image = preprocess_image(image)
 # do the max curvature
 result = max_curvature(sharp_image, vein_mask, sigma=8)
+
+
 # Normalize the result to binary with lower 
 result_normalized = (result - np.min(result)) / (np.max(result) - np.min(result))
-result_normalized = (result_normalized > 0.3).astype(np.uint8) * 255
+#result_normalized = (result_normalized > 0.3).astype(np.uint8) * 255
+
+# Assuming `result_normalized` is your image in the range [0, 1]
+result_scaled = (result_normalized * 255).astype(np.uint8)
+
+# Apply adaptive thresholding
+result_normalized = cv2.adaptiveThreshold(result_scaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 81, 1)
 
 # remove white noise
 result_normalized_without_noise = cv2.morphologyEx(result_normalized, cv2.MORPH_OPEN, np.ones((5,5), np.uint8), iterations=2)
