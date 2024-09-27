@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 from scipy import ndimage
 from scipy.ndimage import rotate
 from scipy.ndimage import gaussian_gradient_magnitude
+import math
 
+# ---- Preprocessing Functions ----
 
 def roi(image):
     # Define the region of interest (ROI) in the image
@@ -43,6 +45,60 @@ def preprocess_image(image):
 
     return vein_mask, masked_image, clahe_image, blurred_image, sharp_image
 
+
+# ---- Maximum Curvature Functions ----
+
+def meshgrid(xgv, ygv):
+    X, Y = np.meshgrid(xgv, ygv)
+    return X, Y
+
+def max_curvature(src, mask, sigma=8):
+    src = src.astype(np.float32) / 255.0
+    sigma2 = sigma ** 2
+    sigma4 = sigma ** 4
+
+    winsize = int(np.ceil(4 * sigma))
+    X, Y = meshgrid(np.arange(-winsize, winsize + 1), np.arange(-winsize, winsize + 1))
+
+    X2 = np.power(X, 2)
+    Y2 = np.power(Y, 2)
+    X2Y2 = X2 + Y2
+
+    h = (1 / (2 * np.pi * sigma2)) * np.exp(-X2Y2 / (2 * sigma2))
+    hx = -(X / sigma2) * h
+    hxx = ((X2 - sigma2) / sigma4) * h
+    hy = hx.T
+    hyy = hxx.T
+    hxy = (X * Y / sigma4) * h
+
+    fx = -cv2.filter2D(src, -1, hx)
+    fy = cv2.filter2D(src, -1, hy)
+    fxx = cv2.filter2D(src, -1, hxx)
+    fyy = cv2.filter2D(src, -1, hyy)
+    fxy = -cv2.filter2D(src, -1, hxy)
+
+    f1 = 0.5 * np.sqrt(2.0) * (fx + fy)
+    f2 = 0.5 * np.sqrt(2.0) * (fx - fy)
+    f11 = 0.5 * fxx + fxy + 0.5 * fyy
+    f22 = 0.5 * fxx - fxy + 0.5 * fyy
+
+    k1 = np.zeros_like(src)
+    k2 = np.zeros_like(src)
+    k3 = np.zeros_like(src)
+    k4 = np.zeros_like(src)
+
+    for y in range(src.shape[0]):
+        for x in range(src.shape[1]):
+            if mask[y, x] > 0:
+                k1[y, x] = fxx[y, x] / np.power(1 + fx[y, x]**2, 1.5)
+                k2[y, x] = fyy[y, x] / np.power(1 + fy[y, x]**2, 1.5)
+                k3[y, x] = f11[y, x] / np.power(1 + f1[y, x]**2, 1.5)
+                k4[y, x] = f22[y, x] / np.power(1 + f2[y, x]**2, 1.5)
+
+    return np.maximum(np.maximum(k1, k2), np.maximum(k3, k4))
+
+# --- Main ---
+
 # Load and process the image
 image_path = 'data/002/L_Fore/02.bmp'
 image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -50,9 +106,16 @@ image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 if image is None:
     raise ValueError("Image not loaded. Check the file path or integrity.")
 
+# Preprocess the image
 vein_mask, masked_image, clahe_image, blurred_image, sharp_image = preprocess_image(image)
-# TODO: add maximum curvature step by step from paper
+# do the max curvature
+result = max_curvature(sharp_image, vein_mask, sigma=8)
+# Normalize the result to binary with lower 
+result_normalized = (result - np.min(result)) / (np.max(result) - np.min(result))
+result_normalized = (result_normalized > 0.3).astype(np.uint8) * 255
 
+# remove white noise
+result_normalized_without_noise = cv2.morphologyEx(result_normalized, cv2.MORPH_OPEN, np.ones((5,5), np.uint8), iterations=2)
 
 # Plotting
 fig, axs = plt.subplots(3, 3, figsize=(10, 10))
@@ -80,6 +143,18 @@ axs[1, 1].axis('off')
 axs[1, 2].imshow(sharp_image, cmap='gray')
 axs[1, 2].set_title('Sharp Image')
 axs[1, 2].axis('off')
+
+axs[2, 0].imshow(result, cmap='jet')
+axs[2, 0].set_title('Maximum Curvature')
+axs[2, 0].axis('off')
+
+axs[2, 1].imshow(result_normalized, cmap='gray')
+axs[2, 1].set_title('Normalized Maximum Curvature')
+axs[2, 1].axis('off')
+
+axs[2, 2].imshow(result_normalized_without_noise, cmap='gray')
+axs[2, 2].set_title('Without Noise')
+axs[2, 2].axis('off')
 
 plt.tight_layout()
 plt.show()
