@@ -6,8 +6,7 @@ Author: Vojtech Fiala <xfiala61> + ChatGPT
 """
 
 import os
-from PIL import Image
-
+import cv2
 
 class DataLoader:
     """
@@ -50,8 +49,8 @@ class DataLoader:
                             if image_file.lower().endswith(('.bmp')):
                                 image_path = os.path.join(finger_path, image_file)
                                 
-                                # Load image using PIL
-                                image = Image.open(image_path)
+                                # Load image using cv2
+                                image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
                                 images.append(image)
 
                         # Store the images for the current finger

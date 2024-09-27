@@ -1,2 +1,5 @@
-pillow
 bob.bio.vein
+numpy
+opencv-python
+matplotlib
+scipy

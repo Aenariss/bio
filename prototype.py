@@ -100,7 +100,7 @@ def max_curvature(src, mask, sigma=8):
 # --- Main ---
 
 # Load and process the image
-image_path = 'data/001/L_Fore/01.bmp'
+image_path = 'data/003/L_Fore/09.bmp'
 image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
 if image is None:
@@ -124,6 +124,71 @@ result_normalized = cv2.adaptiveThreshold(result_scaled, 255, cv2.ADAPTIVE_THRES
 
 # remove white noise
 result_normalized_without_noise = cv2.morphologyEx(result_normalized, cv2.MORPH_OPEN, np.ones((5,5), np.uint8), iterations=2)
+
+# Load and process the image
+image_path = 'data/001/L_Fore/05.bmp'
+image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+if image is None:
+    raise ValueError("Image not loaded. Check the file path or integrity.")
+
+# Preprocess the image
+vein_mask, masked_image, clahe_image, blurred_image, sharp_image = preprocess_image(image)
+# do the max curvature
+result = max_curvature(sharp_image, vein_mask, sigma=8)
+
+
+# Normalize the result to binary with lower 
+result_normalized = (result - np.min(result)) / (np.max(result) - np.min(result))
+#result_normalized = (result_normalized > 0.3).astype(np.uint8) * 255
+
+# Assuming `result_normalized` is your image in the range [0, 1]
+result_scaled = (result_normalized * 255).astype(np.uint8)
+
+# Apply adaptive thresholding
+result_normalized = cv2.adaptiveThreshold(result_scaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 81, 1)
+
+# remove white noise
+result_normalized_without_noise_2 = cv2.morphologyEx(result_normalized, cv2.MORPH_OPEN, np.ones((5,5), np.uint8), iterations=2)
+
+
+def compute_phase_correlation(img1, img2):
+    """
+    Compute phase correlation between two images.
+    Returns the matching score (a higher score means better alignment/matching).
+    """
+    # Convert images to float32
+    img1 = img1.astype(np.float32)
+    img2 = img2.astype(np.float32)
+
+    # Perform the Fourier transform on both images
+    dft1 = np.fft.fft2(img1)
+    dft2 = np.fft.fft2(img2)
+
+    # Compute the cross-power spectrum
+    conj_dft2 = np.conj(dft2)
+    cross_power_spectrum = (dft1 * conj_dft2) / (np.abs(dft1 * conj_dft2) + 1e-8)
+
+    # Perform inverse Fourier transform on cross-power spectrum to get phase correlation
+    inverse_dft = np.fft.ifft2(cross_power_spectrum)
+    correlation_result = np.abs(inverse_dft)
+
+    # Get the peak value in the correlation result
+    max_corr_value = np.max(correlation_result)
+
+    return max_corr_value
+
+# Compute the Miura match score
+score = compute_phase_correlation(result_normalized_without_noise, result_normalized_without_noise_2)
+score = int(1000 * score)
+
+if score is not None:
+    print(f"Match! Score:" if score >= 14 else "Not match! Score:", score)
+else:
+    print("Error in computing the Miura match score.")
+
+
+
 
 # Plotting
 fig, axs = plt.subplots(3, 3, figsize=(10, 10))
