@@ -3,11 +3,16 @@ BIO Project 2024
 
 This module contains a class to preprocess an image 
 Author: Filip Brna <xbrnaf00> + ChatGPT
+
+inpired by: - https://farzad-1996.github.io/files/ICCIT_2020_(Finger_Vein).pdf
+            - https://ieeexplore.ieee.org/abstract/document/8866626
 """
 
 import numpy as np
 import cv2
 from scipy import ndimage
+
+
 
 class Preprocessor:
     def __init__(self):

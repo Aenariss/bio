@@ -14,12 +14,12 @@ from src.Pipeline import pipeline
 import matplotlib.pyplot as plt
 import argparse
 
-def show_results():
+def show_results(image_path):
     """
     Method to visualize the results
     """
     
-    image, vein_mask, masked_image, clahe_image, blurred_image, sharp_image, result, result_normalized, result_normalized_without_noise = pipeline(image_path_1, intermediate=True)
+    image, vein_mask, masked_image, clahe_image, blurred_image, sharp_image, result, result_normalized, result_normalized_without_noise = pipeline(image_path, intermediate=True)
 
     # Plotting
     fig, axs = plt.subplots(3, 3, figsize=(10, 10))
@@ -87,4 +87,4 @@ if __name__ == "__main__":
     elif args.compare_all:
         Comparator().compare_all(args.image_path)
     else:
-        show_results()
+        show_results(args.image_path)
