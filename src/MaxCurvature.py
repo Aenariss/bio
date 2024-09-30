@@ -56,6 +56,8 @@ class MaxCurvature:
 
         # Apply Gaussian derivatives to the source image using 2D convolution
         # fx, fy are the first derivatives of the image in x and y directions
+
+        # STEP 1. 1,2,3,4
         fx = -cv2.filter2D(src, -1, hx)
         fy = cv2.filter2D(src, -1, hy)
         # fxx, fyy are the second derivatives of the image in x and y directions
@@ -63,7 +65,7 @@ class MaxCurvature:
         fyy = cv2.filter2D(src, -1, hyy)
         # fxy is the mixed derivative (xy direction)
         fxy = -cv2.filter2D(src, -1, hxy)
-
+        
         # Compute diagonal derivatives using fx, fy
         f1 = 0.5 * np.sqrt(2.0) * (fx + fy)
         f2 = 0.5 * np.sqrt(2.0) * (fx - fy)
@@ -77,17 +79,79 @@ class MaxCurvature:
         k3 = np.zeros_like(src)
         k4 = np.zeros_like(src)
 
-        # Loop over every pixel in the image
+         # Compute curvatures at each pixel
         for y in range(src.shape[0]):
             for x in range(src.shape[1]):
-                # Only compute curvature if the mask at that pixel is greater than 0
                 if mask[y, x] > 0:
-                    # Compute curvature k1 and k2 based on second derivatives fxx and fyy
                     k1[y, x] = fxx[y, x] / np.power(1 + fx[y, x]**2, 1.5)
                     k2[y, x] = fyy[y, x] / np.power(1 + fy[y, x]**2, 1.5)
-                    # Compute curvature k3 and k4 based on diagonal second derivatives f11 and f22
                     k3[y, x] = f11[y, x] / np.power(1 + f1[y, x]**2, 1.5)
                     k4[y, x] = f22[y, x] / np.power(1 + f2[y, x]**2, 1.5)
 
-        # Return the maximum of the four curvatures (k1, k2, k3, k4) at each pixel
-        return np.maximum(np.maximum(k1, k2), np.maximum(k3, k4))
+        # Scores initialization (Wr and Vt)
+        img_h, img_w = src.shape[:2]
+        Vt = np.zeros_like(src)
+
+        # Horizontal direction processing
+        for y in range(img_h):
+            Wr = 0
+            for x in range(img_w):
+                if k1[y, x] > 0:
+                    Wr += 1
+                if Wr > 0 and (x == img_w - 1 or k1[y, x] <= 0):
+                    pos_end = x if x == img_w - 1 else x - 1
+                    pos_start = pos_end - Wr + 1
+                    max_k1 = np.max(k1[y, pos_start:pos_end + 1])
+                    pos_max = pos_start + np.argmax(k1[y, pos_start:pos_end + 1])
+                    Vt[y, pos_max] += max_k1 * Wr
+                    Wr = 0
+
+        # Vertical direction processing
+        for x in range(img_w):
+            Wr = 0
+            for y in range(img_h):
+                if k2[y, x] > 0:
+                    Wr += 1
+                if Wr > 0 and (y == img_h - 1 or k2[y, x] <= 0):
+                    pos_end = y if y == img_h - 1 else y - 1
+                    pos_start = pos_end - Wr + 1
+                    max_k2 = np.max(k2[pos_start:pos_end + 1, x])
+                    pos_max = pos_start + np.argmax(k2[pos_start:pos_end + 1, x])
+                    Vt[pos_max, x] += max_k2 * Wr
+                    Wr = 0
+
+        # Diagonal (\) direction processing
+        for start in range(img_h + img_w - 1):
+            x, y = (start, 0) if start < img_w else (0, start - img_w + 1)
+            Wr = 0
+            while x < img_w and y < img_h:
+                if k3[y, x] > 0:
+                    Wr += 1
+                if Wr > 0 and (x == img_w - 1 or y == img_h - 1 or k3[y, x] <= 0):
+                    pos_x_end, pos_y_end = (x, y) if x == img_w - 1 or y == img_h - 1 else (x - 1, y - 1)
+                    pos_x_start, pos_y_start = pos_x_end - Wr + 1, pos_y_end - Wr + 1
+                    max_k3 = np.max(np.diag(k3[pos_y_start:pos_y_end + 1, pos_x_start:pos_x_end + 1]))
+                    pos_max = np.argmax(np.diag(k3[pos_y_start:pos_y_end + 1, pos_x_start:pos_x_end + 1]))
+                    Vt[pos_y_start + pos_max, pos_x_start + pos_max] += max_k3 * Wr
+                    Wr = 0
+                x += 1
+                y += 1
+
+        # Diagonal (/) direction processing
+        for start in range(img_h + img_w - 1):
+            x, y = (start, img_h - 1) if start < img_w else (0, img_w + img_h - start - 2)
+            Wr = 0
+            while x < img_w and y >= 0:
+                if k4[y, x] > 0:
+                    Wr += 1
+                if Wr > 0 and (x == img_w - 1 or y == 0 or k4[y, x] <= 0):
+                    pos_x_end, pos_y_end = (x, y) if x == img_w - 1 or y == 0 else (x - 1, y + 1)
+                    pos_x_start, pos_y_start = pos_x_end - Wr + 1, pos_y_end + Wr - 1
+                    max_k4 = np.max(np.diag(np.flipud(k4[pos_y_end:pos_y_start + 1, pos_x_start:pos_x_end + 1])))
+                    pos_max = np.argmax(np.diag(np.flipud(k4[pos_y_end:pos_y_start + 1, pos_x_start:pos_x_end + 1])))
+                    Vt[pos_y_start - pos_max, pos_x_start + pos_max] += max_k4 * Wr
+                    Wr = 0
+                x += 1
+                y -= 1
+
+        return Vt
