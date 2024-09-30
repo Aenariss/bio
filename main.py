@@ -14,7 +14,7 @@ from src.Pipeline import pipeline
 import matplotlib.pyplot as plt
 import argparse
 
-def show_results():
+def show_results(image_path_1):
     """
     Method to visualize the results
     """
@@ -87,4 +87,4 @@ if __name__ == "__main__":
     elif args.compare_all:
         Comparator().compare_all(args.image_path)
     else:
-        show_results()
+        show_results(args.image_path)

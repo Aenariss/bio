@@ -56,6 +56,8 @@ class MaxCurvature:
 
         # Apply Gaussian derivatives to the source image using 2D convolution
         # fx, fy are the first derivatives of the image in x and y directions
+
+        # STEP 1. 1,2,3,4
         fx = -cv2.filter2D(src, -1, hx)
         fy = cv2.filter2D(src, -1, hy)
         # fxx, fyy are the second derivatives of the image in x and y directions
@@ -63,7 +65,7 @@ class MaxCurvature:
         fyy = cv2.filter2D(src, -1, hyy)
         # fxy is the mixed derivative (xy direction)
         fxy = -cv2.filter2D(src, -1, hxy)
-
+        
         # Compute diagonal derivatives using fx, fy
         f1 = 0.5 * np.sqrt(2.0) * (fx + fy)
         f2 = 0.5 * np.sqrt(2.0) * (fx - fy)
@@ -77,6 +79,7 @@ class MaxCurvature:
         k3 = np.zeros_like(src)
         k4 = np.zeros_like(src)
 
+        # STEP 2
         # Loop over every pixel in the image
         for y in range(src.shape[0]):
             for x in range(src.shape[1]):
