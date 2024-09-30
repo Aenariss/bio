@@ -12,10 +12,7 @@ from src.Comparator import Comparator
 from src.Pipeline import pipeline
 
 import matplotlib.pyplot as plt
-
-# Load and process the image
-image_path_1 = 'data/001/L_Fore/09.bmp'
-image_path_2 = 'data/001/L_Fore/02.bmp'
+import argparse
 
 def show_results():
     """
@@ -74,8 +71,20 @@ def compare_2_images(img1, img2):
     print(score)
     
 if __name__ == "__main__":
-    compare_2_images(image_path_1, image_path_2)
-    #show_results()
 
-    #results = Comparator().compare_all(image_path_1)
-    #print(results)
+    parser = argparse.ArgumentParser(description='Finger vein extraction and comparison, default(no argument) is to visualize the pipeline of the image')
+    parser.add_argument('-ip', '--image-path', type=str, help='Path to the finger image', required=True)
+    parser.add_argument('-cw', '--compare-with', type=str, help='Path to the finger image to compare with')
+    parser.add_argument('-ca', '--compare-all', action='store_true', help='Compare all images in the dataset')
+    args = parser.parse_args()
+
+    if args.compare_with and args.compare_all:
+        parser.error("Cannot use both compare_with and compare_all arguments")
+        exit(1)
+
+    if args.compare_with:
+        compare_2_images(args.image_path, args.compare_with)
+    elif args.compare_all:
+        Comparator().compare_all(args.image_path)
+    else:
+        show_results()

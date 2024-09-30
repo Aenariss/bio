@@ -57,4 +57,4 @@ class Comparator:
                     current_features = pipeline(photo)
                     result_score = self.compare(current_features, original_features)
                     results.append(result_score)
-        return results
+        print(results)
