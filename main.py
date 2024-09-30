@@ -5,6 +5,9 @@ Author:
     Vojtech Fiala <xfiala61>
 """
 
+# Dataset Mentioned at https://www.researchgate.net/publication/308128095_A_Review_of_Finger-Vein_Biometrics_Identification_Approaches, found at https://huggingface.co/datasets/luyu0311/MMCBNU_6000
+# We use only a part of it 
+
 from src.Comparator import Comparator
 from src.Pipeline import pipeline
 

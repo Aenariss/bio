@@ -1,69 +1,101 @@
 """
 BIO Project 2024
-Author: Vojtech Fiala <xfiala61>
-DOESNT WORK
+
+File contains tests conducted using the reference bob.bio.vein library.
+ChatGPT doesnt know this library and its documentation is absolutely horrible. 
+Even though the actual work is done in only 4 lines, the amount of time it took to make them work is unspeakable
+Author: Vojtech Fiala <xfiala61> + ChatGPT
 """
 
-from bob.bio.vein.extractor import MaximumCurvature
-import numpy as np
-import matplotlib.pyplot as plt
+# Import necessary libraries
 import bob.bio.vein
-from skimage import io, color
-from skimage.filters import gaussian
-from skimage.morphology import binary_opening, disk
-from skimage.util import img_as_float
-import numpy as np
+import bob.bio.vein.extractor
+import bob.bio.vein.preprocessor
+import bob.io.image
 import matplotlib.pyplot as plt
-from skimage import io, color, filters, morphology
-from skimage.util import img_as_float
+import cv2
+from src.Preprocessor import Preprocessor
+from src.MaxCurvature import MaxCurvature
+import numpy as np
 
-# Function to preprocess the image
-def preprocess_image(image_path):
-    # Load the image
-    image = io.imread(image_path)
+def visually_compare_2_figs(fig1, fig2):
+    # Display the original image and extracted vein pattern
+    plt.figure(figsize=(10, 5))
 
-    # Apply Gaussian filter to smooth the image
-    smoothed_image = filters.gaussian(image, sigma=1)
-
-    # Apply binary thresholding to create a binary image
-    binary_image = smoothed_image > np.mean(smoothed_image)
-
-    # Apply binary opening to reduce noise
-    opened_image = morphology.binary_opening(binary_image, morphology.disk(2))
-
-    # Create the finger image and mask
-    finger_image = img_as_float(smoothed_image)  # use the smoothed image for curvature
-    finger_mask = opened_image.astype(np.float64)  # binary mask of veins
-
-    return finger_image, finger_mask
-
-# Main function to extract features
-def extract_features(image_path):
-    # Preprocess the image
-    finger_image, finger_mask = preprocess_image(image_path)
-
-    # Initialize the Maximum Curvature extractor
-    extractor = MaximumCurvature()
-
-    # Extract features
-    features = extractor(finger_image, mask=finger_mask)
-
-    return features
-
-
-# Example usage
-if __name__ == "__main__":
-    # Path to the image file
-    image_path = 'data/001/L_Fore/01.png'
-
-    # Extract features from the image
-    features = extract_features(image_path)
-
-    # Display the extracted features
-    print("Extracted Features Shape:", features.shape)
-
-    # Optionally visualize the preprocessed image
-    plt.imshow(preprocess_image(image_path), cmap='gray')
-    plt.title('Preprocessed Vein Image')
+    # Show original vein image
+    plt.subplot(1, 2, 1)
+    plt.imshow(fig1, cmap='gray')
+    plt.title('Original Vein Image')
     plt.axis('off')
+
+    # Show extracted vein pattern
+    plt.subplot(1, 2, 2)
+    plt.imshow(fig2, cmap='gray')
+    plt.title('Extracted Vein Pattern')
+    plt.axis('off')
+
+    # Show the plots
+    plt.tight_layout()
     plt.show()
+
+def bob_preprocess(img_path):
+    image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+
+    mask = Preprocessor().detect_finger_vein_mask(image)
+
+    # Preprocess the image to get it ready for feature extraction
+    preprocessor = bob.bio.vein.preprocessor.HuangNormalization()
+    preprocessed_image = preprocessor(image, mask)
+    return preprocessed_image
+
+def bob_maxCurve(img):
+    # Load the Maximum Curvature extractor from the bob.bio.vein library
+    extractor = bob.bio.vein.extractor.MaximumCurvature()
+
+    # Extract the vein pattern using the Maximum Curvature technique
+    vein_pattern = extractor(img)
+    return vein_pattern
+
+
+def implemented_maxCurve(img, mask):
+    # Our implementation of the maximum curvature method
+    vein_pattern = MaxCurvature().max_curvature(img, mask)
+
+    result_normalized = (vein_pattern - np.min(vein_pattern)) / (np.max(vein_pattern) - np.min(vein_pattern))
+    result_scaled = (result_normalized * 255).astype(np.uint8)
+
+    result_normalized = cv2.adaptiveThreshold(result_scaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 81, 1)
+
+    result_normalized_without_noise = cv2.morphologyEx(result_normalized, cv2.MORPH_OPEN, np.ones((5,5), np.uint8), iterations=2) # Final result
+    return result_normalized_without_noise
+
+
+def visually_compare_2_figs(fig1, fig2):
+    # Display the original image and extracted vein pattern
+    plt.figure(figsize=(10, 5))
+
+    # Show original vein image
+    plt.subplot(1, 2, 1)
+    plt.imshow(fig1, cmap='gray')
+    plt.title('BoB reference')
+    plt.axis('off')
+
+    # Show extracted vein pattern
+    plt.subplot(1, 2, 2)
+    plt.imshow(fig2, cmap='gray')
+    plt.title('Our implemented method')
+    plt.axis('off')
+
+    # Show the plots
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    # Load the vein image (replace with the actual path to your image)
+    image_path = "data/001/L_Fore/01.bmp"
+
+    preprocessed = bob_preprocess(image_path)
+
+    bob_implementation = bob_maxCurve(preprocessed)
+    our_implementation = implemented_maxCurve(preprocessed[0], preprocessed[1])
+    visually_compare_2_figs(bob_implementation, our_implementation)
