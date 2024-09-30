@@ -59,14 +59,17 @@ def bob_maxCurve(img):
 
 def implemented_maxCurve(img, mask):
     # Our implementation of the maximum curvature method
-    vein_pattern = MaxCurvature().max_curvature(img, mask)
 
-    result_normalized = (vein_pattern - np.min(vein_pattern)) / (np.max(vein_pattern) - np.min(vein_pattern))
+    result = MaxCurvature().max_curvature(img, mask, sigma=8)
+
+    result_normalized = (result - np.min(result)) / (np.max(result) - np.min(result))
     result_scaled = (result_normalized * 255).astype(np.uint8)
 
-    result_normalized = cv2.adaptiveThreshold(result_scaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 81, 1)
+    result_normalized_without_noise = cv2.adaptiveThreshold(result_scaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 3, 1)
+    result_normalized_without_noise = cv2.bitwise_and(result_normalized_without_noise, result_normalized_without_noise, mask=mask)
+    result_normalized_without_noise = cv2.bitwise_not(result_normalized_without_noise, result_normalized_without_noise, mask=mask)
 
-    result_normalized_without_noise = cv2.morphologyEx(result_normalized, cv2.MORPH_OPEN, np.ones((5,5), np.uint8), iterations=2) # Final result
+
     return result_normalized_without_noise
 
 
@@ -92,7 +95,7 @@ def visually_compare_2_figs(fig1, fig2):
 
 if __name__ == "__main__":
     # Load the vein image (replace with the actual path to your image)
-    image_path = "data/001/L_Fore/01.bmp"
+    image_path = "data/002/L_Fore/01.bmp"
 
     preprocessed = bob_preprocess(image_path)
 
