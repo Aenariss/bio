@@ -48,9 +48,21 @@ class Preprocessor:
         # Contrast Limited Adaptive Histogram Equalization (CLAHE)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         clahe_image = clahe.apply(masked_image)
-        # Gaussian blur to reduce noise
-        blurred_image = cv2.GaussianBlur(clahe_image, (5, 5), 0)
+        # Median Filter for noise reduction
+        median_filtered_image = cv2.medianBlur(clahe_image, 5)
+        # Gaussian blur to further reduce noise
+        blurred_image = cv2.GaussianBlur(median_filtered_image, (5, 5), 0)
         # Unsharp masking to enhance details
-        sharp_image = cv2.addWeighted(clahe_image, 1.5, blurred_image, -0.5, 0)
-
+        sharp_image = cv2.addWeighted(clahe_image, 1.3, blurred_image, -0.3, 0)
+        
+        # TODO: ChatGPT suggestion, it increase the the "similarity" value but also for the wrong fingers (false positives)
+        #       incerase the threshold to 15 to remove false positive
+        #       maybe try to combine it with adaptive thresholding (commented in the pipeline)
+        # Optional: Apply Laplacian sharpening (alternative)
+        # Apply Laplacian and convert to the same data type as blurred_image
+        #laplacian = cv2.Laplacian(blurred_image, cv2.CV_64F)  # Laplacian produces float64
+        #laplacian = cv2.convertScaleAbs(laplacian)  # Convert Laplacian to uint8
+        #sharp_image = cv2.subtract(blurred_image, laplacian)
+        
+        
         return vein_mask, masked_image, clahe_image, blurred_image, sharp_image

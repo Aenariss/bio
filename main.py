@@ -11,6 +11,8 @@ Author:
 from src.Comparator import Comparator
 from src.Pipeline import pipeline
 
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import argparse
 
