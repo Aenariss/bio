@@ -1,6 +1,9 @@
 """
 BIO Project 2024
-Author: Filip Brna <xbrnaf00>, Vojtech Fiala <xfiala61>, ChatGPT
+Author: 
+    Filip Brna <xbrnaf00>
+    Vojtech Fiala <xfiala61>
+    ChatGPT
 File showing an example pipeline to obtain features from a grayscale finger photo
 """
 
@@ -13,11 +16,17 @@ def pipeline(image, intermediate=False):
     """
     Do all the necessary steps to process an image - load it, enhance its quality, remove noise and return the features. Optionally get all intermediate images
     """
+    # Path to file
     if isinstance(image, str):
         image = cv2.imread(image, cv2.IMREAD_GRAYSCALE)
 
+    # Error
     if image is None:
         raise ValueError("Image not loaded. Check the file path or integrity.")
+    
+    # Image is a np array
+    if isinstance(image, np.ndarray):
+        image = cv2.imdecode(image, cv2.IMREAD_GRAYSCALE)
 
     # Preprocess the image
     vein_mask, masked_image, clahe_image, blurred_image, sharp_image = Preprocessor().preprocess_image(image)
@@ -44,8 +53,8 @@ def pipeline(image, intermediate=False):
     result_normalized_without_noise = cv2.morphologyEx(result_thresholded, cv2.MORPH_CLOSE, kernel)
 
     # do mask a little bit smaller to remove the edges
-    #vein_mask = cv2.erode(vein_mask, kernel, iterations=3)
-    #result_normalized_without_noise = cv2.bitwise_and(result_normalized_without_noise, vein_mask)
+    vein_mask = cv2.erode(vein_mask, kernel, iterations=3)
+    result_normalized_without_noise = cv2.bitwise_and(result_normalized_without_noise, vein_mask)
 
 
     if intermediate:

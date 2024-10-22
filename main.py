@@ -10,9 +10,8 @@ Author:
 
 from src.Comparator import Comparator
 from src.Pipeline import pipeline
+from src.FeatureExtractor import FeatureExtractor
 
-import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import argparse
 
@@ -22,6 +21,9 @@ def show_results(image_path):
     """
     
     image, vein_mask, masked_image, clahe_image, blurred_image, sharp_image, result, result_normalized, result_normalized_without_noise = pipeline(image_path, intermediate=True)
+
+    descriptor = FeatureExtractor(result_normalized_without_noise).create_descriptor()
+    print(descriptor)
 
     # Plotting
     fig, axs = plt.subplots(3, 3, figsize=(10, 10))
@@ -62,6 +64,8 @@ def show_results(image_path):
     axs[2, 2].set_title('Without Noise')
     axs[2, 2].axis('off')
 
+    #plt.savefig('tmp_result.png')
+
     plt.tight_layout()
     plt.show()
 
@@ -69,7 +73,13 @@ def compare_2_images(img1, img2):
     img1 = pipeline(img1)
     img2 = pipeline(img2)
 
-    score = Comparator(threshold=14).compare(img1, img2)
+    descriptor1 = FeatureExtractor(img1).create_descriptor()
+    descriptor2 = FeatureExtractor(img2).create_descriptor()
+
+    #score = Comparator(threshold=14).compare(img1, img2)
+
+    # The lower score the more similar they are
+    score = Comparator().compare_descriptors(descriptor1, descriptor2)
     print(score)
     
 if __name__ == "__main__":

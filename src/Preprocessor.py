@@ -2,7 +2,9 @@
 BIO Project 2024
 
 This module contains a class to preprocess an image 
-Author: Filip Brna <xbrnaf00> + ChatGPT
+Author: 
+    Filip Brna <xbrnaf00>
+    ChatGPT
 
 inpired by: - https://farzad-1996.github.io/files/ICCIT_2020_(Finger_Vein).pdf
             - https://ieeexplore.ieee.org/abstract/document/8866626

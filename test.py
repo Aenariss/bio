@@ -16,27 +16,9 @@ import matplotlib.pyplot as plt
 import cv2
 from src.Preprocessor import Preprocessor
 from src.MaxCurvature import MaxCurvature
+
+from src.Pipeline import pipeline
 import numpy as np
-
-def visually_compare_2_figs(fig1, fig2):
-    # Display the original image and extracted vein pattern
-    plt.figure(figsize=(10, 5))
-
-    # Show original vein image
-    plt.subplot(1, 2, 1)
-    plt.imshow(fig1, cmap='gray')
-    plt.title('Original Vein Image')
-    plt.axis('off')
-
-    # Show extracted vein pattern
-    plt.subplot(1, 2, 2)
-    plt.imshow(fig2, cmap='gray')
-    plt.title('Extracted Vein Pattern')
-    plt.axis('off')
-
-    # Show the plots
-    plt.tight_layout()
-    plt.show()
 
 def bob_preprocess(img_path):
     image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
@@ -57,23 +39,10 @@ def bob_maxCurve(img):
     return vein_pattern
 
 
-def implemented_maxCurve(img, mask):
+def implemented_maxCurve(img):
     # Our implementation of the maximum curvature method
 
-    result = MaxCurvature().max_curvature(img, mask, sigma=8)
-
-    result_normalized = (result - np.min(result)) / (np.max(result) - np.min(result))
-    result_scaled = (result_normalized * 255).astype(np.uint8)
-
-    #result_normalized_without_noise = cv2.adaptiveThreshold(result_scaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 3, 1)
-    #result_normalized_without_noise = cv2.bitwise_and(result_normalized_without_noise, result_normalized_without_noise, mask=mask)
-    #result_normalized_without_noise = cv2.bitwise_not(result_normalized_without_noise, result_normalized_without_noise, mask=mask)
-
-    # Fixed threshold seems to give best results
-    _, result_normalized_without_noise = cv2.threshold(result_scaled, 3, 255, cv2.THRESH_BINARY)
-
-
-    return result_normalized_without_noise
+    return pipeline(img)
 
 
 def visually_compare_2_figs(fig1, fig2):
@@ -98,10 +67,10 @@ def visually_compare_2_figs(fig1, fig2):
 
 if __name__ == "__main__":
     # Load the vein image (replace with the actual path to your image)
-    image_path = "data/002/L_Fore/01.bmp"
+    image_path = "data/001/L_Fore/01.bmp"
 
     preprocessed = bob_preprocess(image_path)
 
     bob_implementation = bob_maxCurve(preprocessed)
-    our_implementation = implemented_maxCurve(preprocessed[0], preprocessed[1])
+    our_implementation = implemented_maxCurve(preprocessed[0])
     visually_compare_2_figs(bob_implementation, our_implementation)

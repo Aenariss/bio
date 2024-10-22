@@ -2,7 +2,9 @@
 BIO Project 2024
 
 This module contains a class to load all the images from the dataset
-Author: Vojtech Fiala <xfiala61> + ChatGPT
+Author: 
+    Vojtech Fiala <xfiala61>
+    ChatGPT
 """
 
 import os

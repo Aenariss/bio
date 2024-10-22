@@ -2,7 +2,10 @@
 BIO Project 2024
 
 This module contains a class to compare results 
-Author: Vojtech Fiala <xfiala61> + ChatGPT + Gemini
+Author: 
+    Vojtech Fiala <xfiala61>
+    ChatGPT
+    Gemini
 """
 
 import numpy as np
@@ -121,3 +124,37 @@ class Comparator:
                     result_score = self.compare(current_features, original_features)
                     results.append(result_score)
         print(results)
+
+    # Method to compare two descriptors
+    def compare_descriptors(self, descriptor1, descriptor2):
+        """
+        Compares two descriptors and returns a similarity score.
+        """
+        score = 0
+
+        # Compare bifurcations using Euclidean distance
+        # Invalid shapes, operands could not be broadcast together with shapes (2492,2) (2614,2)
+        if len(descriptor1['bifurcations']) > 0 and len(descriptor2['bifurcations']) > 0:
+            score += np.linalg.norm(descriptor1['bifurcations'] - descriptor2['bifurcations'])
+        
+        if len(descriptor1['crossings']) > 0 and len(descriptor2['crossings']) > 0:
+            score += np.linalg.norm(descriptor1['crossings'] - descriptor2['crossings'])
+        
+        # Compare curvature maps using sum of differences
+        score += np.sum(np.abs(descriptor1['curvature'] - descriptor2['curvature']))
+        
+        # Compare thickness maps
+        score += np.sum(np.abs(descriptor1['thickness'] - descriptor2['thickness']))
+        
+        # Compare orientation maps
+        score += np.sum(np.abs(descriptor1['orientation'] - descriptor2['orientation']))
+        
+        # Compare density maps
+        score += np.sum(np.abs(descriptor1['density'] - descriptor2['density']))
+        
+        # Compare endpoints (similar to bifurcations)
+        if len(descriptor1['endpoints']) > 0 and len(descriptor2['endpoints']) > 0:
+            score += np.linalg.norm(descriptor1['endpoints'] - descriptor2['endpoints'])
+
+        return score  # The lower the score, the more similar the two descriptors
+
