@@ -23,7 +23,7 @@ def show_results(image_path):
     image, vein_mask, masked_image, clahe_image, blurred_image, sharp_image, result, result_normalized, result_normalized_without_noise = pipeline(image_path, intermediate=True)
 
     descriptor = FeatureExtractor(result_normalized_without_noise).create_descriptor()
-    print(descriptor)
+    #print(descriptor)
 
     # Plotting
     fig, axs = plt.subplots(3, 3, figsize=(10, 10))

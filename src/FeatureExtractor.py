@@ -7,45 +7,18 @@ Author:
 
 import numpy as np
 import cv2
+from src.Postprocessor import Postprocessor
 
 class FeatureExtractor:
     def __init__(self, vein_image):
         # Initialize with the preprocessed vein image (binary or grayscale)
         self.vein_image = vein_image
         self.WHITE = 255
+        self.postprocessor = Postprocessor()
+        self.skeleton = self.postprocessor.skeletonize(self.vein_image)
 
-    def skeletonize(self, binary_image):
-        """
-        Apply a simple skeletonization method using morphological operations.
-        """
-        # Ensure the input is binary (0s and 255s)
-        binary_image = (binary_image > 0).astype(np.uint8) * 255
-
-        # Create a skeleton image
-        skeleton = np.zeros_like(binary_image)
-
-        # Structuring element for morphological operations
-        kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
-
-        # Iteratively erode the image and subtract from the original
-        while True:
-            # Erode the image
-            eroded = cv2.erode(binary_image, kernel)
-
-            # Dilate the eroded image
-            temp = cv2.dilate(eroded, kernel)
-
-            # Subtract the temp from the original image
-            skeleton = cv2.bitwise_or(skeleton, cv2.subtract(binary_image, temp))
-
-            # Update binary_image for the next iteration
-            binary_image = eroded.copy()
-
-            # Stop if the image is completely eroded
-            if cv2.countNonZero(binary_image) == 0:
-                break
-
-        return skeleton
+        # Will this be needed? If so, should we do it on skeleton or the original vein image?
+        self.removed_artefacts = self.postprocessor.remove_artefacts(self.skeleton, 30)
 
     # Method to extract bifurcations and crossings
     # Because of how our source looks, this may be less accurate than we'd like it to be... still better than nothing ig
@@ -54,20 +27,18 @@ class FeatureExtractor:
         This method detects and returns the bifurcations (branching points)
         and crossings of the veins in the image.
         """
-        # Use thinning algorithm to reduce the vein structure to 1 pixel wide
-        thinned_image = self.skeletonize(self.vein_image)
 
         # Create an empty image to mark bifurcations and crossings
-        bifurcations = np.zeros_like(thinned_image, dtype=np.uint8)
-        crossings = np.zeros_like(thinned_image, dtype=np.uint8)
+        bifurcations = np.zeros_like(self.skeleton, dtype=np.uint8)
+        crossings = np.zeros_like(self.skeleton, dtype=np.uint8)
 
         # Iterate over each pixel in the thinned image
-        for y in range(1, thinned_image.shape[0] - 1):
-            for x in range(1, thinned_image.shape[1] - 1):
+        for y in range(1, self.skeleton.shape[0] - 1):
+            for x in range(1, self.skeleton.shape[1] - 1):
                 # Check if the pixel is part of a vein
-                if thinned_image[y, x] == self.WHITE:
+                if self.skeleton[y, x] == self.WHITE:
                     # Extract the neighborhood
-                    neighborhood = thinned_image[y-1:y+2, x-1:x+2]
+                    neighborhood = self.skeleton[y-1:y+2, x-1:x+2]
                     # Count the number of white pixels (255) in the neighborhood
                     num_white_pixels = np.sum(neighborhood == self.WHITE)
                     

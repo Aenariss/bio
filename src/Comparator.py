@@ -122,6 +122,7 @@ class Comparator:
                 for photo in data[person][finger]:
                     current_features = pipeline(photo)
                     result_score = self.compare(current_features, original_features)
+                    print(result_score)
                     results.append(result_score)
         print(results)
 

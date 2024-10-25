@@ -50,6 +50,7 @@ class Preprocessor:
         # Contrast Limited Adaptive Histogram Equalization (CLAHE)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         clahe_image = clahe.apply(masked_image)
+
         # Median Filter for noise reduction
         median_filtered_image = cv2.medianBlur(clahe_image, 5)
         # Gaussian blur to further reduce noise

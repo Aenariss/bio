@@ -50,10 +50,7 @@ class DataLoader:
                         for image_file in os.listdir(finger_path):
                             if image_file.lower().endswith(('.bmp')):
                                 image_path = os.path.join(finger_path, image_file)
-                                
-                                # Load image using cv2
-                                image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-                                images.append(image)
+                                images.append(image_path)
 
                         # Store the images for the current finger
                         data[person_id][finger] = images
