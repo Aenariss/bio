@@ -14,6 +14,7 @@ class FeatureExtractor:
         # Initialize with the preprocessed vein image (binary or grayscale)
         self.vein_image = vein_image
         self.WHITE = 255
+        self.BLACK = 0
         self.postprocessor = Postprocessor()
         self.skeleton = self.postprocessor.skeletonize(self.vein_image)
 
@@ -28,35 +29,58 @@ class FeatureExtractor:
         and crossings of the veins in the image.
         """
 
+        WHITE = self.WHITE
+
+        def is_bifurcation_or_crossing_shape(neighborhood):
+
+            # Check for T or Y shapes by checking specific patterns
+            # Explicitly state possible pattersn
+            # True states White pixel, False states Black (i dont care about) pixel
+            patterns = [
+                np.array([[False, False, False], [False, True, False], [True, False, True]]), # Y
+                np.array([[False, False, True], [False, True, False], [False, False, True]]), # Y 90 degress
+                np.array([[True, False, True], [False, True, False], [False, False, False]]), # Y 180 degrees
+                np.array([[True, False, False], [False, True, False], [True, False, False]]), # Y 270 degress
+                np.array([[True, True, True], [False, True, False], [False, False, False]]), # T
+                np.array([[False, False, True], [False, True, True], [False, False, True]]), # T 90 degrees
+                np.array([[False, False, False], [False, True, False], [True, True, True]]), # T 180 degrees
+                np.array([[True, False, False], [True, True, False], [True, False, False]]), # T 270 degrees
+                np.array([[True, False, True], [False, True, False], [True, False, True]])  # Crossing X
+            ]
+
+            # Compare with each bifurcation pattern, only check white pixels
+            neighborhood_mask = (neighborhood == self.WHITE)
+
+            # If at least one pattern matches all white pixels in the neighborhood, return match
+            return np.any([np.all(neighborhood_mask[pattern]) for pattern in patterns])
+
         # Create an empty image to mark bifurcations and crossings
-        bifurcations = np.zeros_like(self.skeleton, dtype=np.uint8)
-        crossings = np.zeros_like(self.skeleton, dtype=np.uint8)
+        bifurcation_points = []
 
         # Iterate over each pixel in the thinned image
-        for y in range(1, self.skeleton.shape[0] - 1):
-            for x in range(1, self.skeleton.shape[1] - 1):
+        y = 1  # Start from the first row to avoid out-of-bounds
+        while y < self.skeleton.shape[0] - 1:
+            x = 1  # Start from the first column to avoid out-of-bounds
+            while x < self.skeleton.shape[1] - 1:
                 # Check if the pixel is part of a vein
-                if self.skeleton[y, x] == self.WHITE:
-                    # Extract the neighborhood
-                    neighborhood = self.skeleton[y-1:y+2, x-1:x+2]
-                    # Count the number of white pixels (255) in the neighborhood
-                    num_white_pixels = np.sum(neighborhood == self.WHITE)
-                    
-                    # Check for bifurcation (3 connections) and crossing (4 connections)
-                    if num_white_pixels >= 4:
-                        # Mark as crossing
-                        crossings[y, x] = self.WHITE
-                    elif num_white_pixels == 3:
-                        # Mark as bifurcation
-                        bifurcations[y, x] = self.WHITE
-                        
-        # Get coordinates of bifurcations
-        bifurcation_points = np.column_stack(np.where(bifurcations == 255))
+                # Extract the 3x3 neighborhood
+                neighborhood = self.skeleton[y-1:y+2, x-1:x+2] # Choose which is better - skeleton or skeleton w/o artefacts
 
-        # Get coordinates of crossings
-        crossing_points = np.column_stack(np.where(crossings == 255))
-        
-        return bifurcation_points, crossing_points  # Return the coordinates of the bifurcation points
+                # Count the number of white pixels (255) in the neighborhood
+                num_white_pixels = np.sum(neighborhood == WHITE)
+
+                # Check if the number of white pixels suggests a potential crossing or bifurcation
+                if 3 <= num_white_pixels <= 6:
+                    # Check for bifurcation pattern
+                    if is_bifurcation_or_crossing_shape(neighborhood):
+                        bifurcation_points.append([y, x])
+                        # Move to the next neighborhood by skipping over the relevant area
+                        x += 1  # Skip to the next potential neighborhood
+
+                x += 1  # Move to the next pixel in the same row
+            y += 1  # Move to the next row, this can result in one bifurcation being present several times but should still somehow work
+
+        return bifurcation_points  # Return the coordinates of the bifurcation points
     
     # Method to extract vein curvature
     def extract_curvature(self):
@@ -65,7 +89,7 @@ class FeatureExtractor:
         """
         # Placeholder: implement curvature extraction
         curvature_map = np.zeros_like(self.vein_image)  # Dummy value
-        return curvature_map
+        return []
 
     # Method to extract vein thickness
     def extract_thickness(self):
@@ -74,7 +98,7 @@ class FeatureExtractor:
         """
         # Placeholder: implement vein thickness extraction
         thickness_map = np.zeros_like(self.vein_image)  # Dummy value
-        return thickness_map
+        return []
 
     # Method to extract vein orientation (direction of veins)
     def extract_orientation(self):
@@ -83,7 +107,7 @@ class FeatureExtractor:
         """
         # Placeholder: implement vein orientation extraction
         orientation_map = np.zeros_like(self.vein_image)  # Dummy value
-        return orientation_map
+        return []
 
     # Method to extract vein density
     def extract_density(self):
@@ -92,7 +116,7 @@ class FeatureExtractor:
         """
         # Placeholder: implement vein density extraction
         density_map = np.zeros_like(self.vein_image)  # Dummy value
-        return density_map
+        return []
 
     # Method to extract vein endpoints (useful for topological structure)
     def extract_endpoints(self):
@@ -101,14 +125,14 @@ class FeatureExtractor:
         """
         # Placeholder: implement vein endpoint detection
         endpoints = np.array([])  # Dummy value
-        return endpoints
+        return []
 
     # Method to create a full descriptor combining all features
     def create_descriptor(self):
         """
         This method creates a feature descriptor by combining various vein features.
         """
-        bifurcations, crossings = self.extract_bifurcations()
+        bifurcations = self.extract_bifurcations() # crossings are part of bifurtcations
         curvature = self.extract_curvature()
         thickness = self.extract_thickness()
         orientation = self.extract_orientation()
@@ -118,7 +142,6 @@ class FeatureExtractor:
         # Combine all features into a descriptor
         descriptor = {
             'bifurcations': bifurcations,
-            'crossings': crossings,
             'curvature': curvature,
             'thickness': thickness,
             'orientation': orientation,

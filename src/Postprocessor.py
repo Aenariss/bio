@@ -18,9 +18,9 @@ class Postprocessor:
 
     def skeletonize(self, image):
 
-        skeleton = morphology.skeletonize(image)
+        skeleton = morphology.skeletonize(image).astype(np.uint8)
 
-        return skeleton
+        return self.binarize(skeleton)
     
     def remove_artefacts(self, image, removal_length=30):
         """
@@ -73,11 +73,15 @@ class Postprocessor:
     
     def remove_mask_edge(self, image, vein_mask):
 
+
         kernel = np.ones((3,3), np.uint8)
 
         # make mask a little bit smaller to remove the edges
         vein_mask = cv2.erode(vein_mask, kernel, iterations=3)
         removed_edge_veins = cv2.bitwise_and(image, vein_mask)
+
+        # also remove first few columns of image to fix artefacts
+        removed_edge_veins = removed_edge_veins[:, 4:] 
 
         return removed_edge_veins
         
