@@ -45,14 +45,32 @@ class FeatureExtractor:
                 np.array([[False, False, True], [False, True, True], [False, False, True]]), # T 90 degrees
                 np.array([[False, False, False], [False, True, False], [True, True, True]]), # T 180 degrees
                 np.array([[True, False, False], [True, True, False], [True, False, False]]), # T 270 degrees
-                np.array([[True, False, True], [False, True, False], [True, False, True]])  # Crossing X
+                np.array([[True, False, True], [False, True, False], [True, False, True]]),  # Crossing X
+                np.array([[False, True, False], [True, True, True], [False, True, False]]) # Crossing +
             ]
 
-            # Compare with each bifurcation pattern, only check white pixels
+            pattern_lengths = len(patterns)
             neighborhood_mask = (neighborhood == self.WHITE)
 
+            # Check bifurcation patterns
+            for i in range(pattern_lengths):
+
+                # Pattern matches
+                if np.all(neighborhood_mask[patterns[i]]):
+                    direction = (i % 4) * 90
+                    if i <= 3:
+                        return True, 'bY', direction
+                    elif 4 <= i <= 7:
+                        return True, 'bT', direction
+                    else:
+                        return True, 'c', direction
+                
+            return False, None, None
+
+            # Compare with each bifurcation pattern, only check white pixels
+            #neighborhood_mask = (neighborhood == self.WHITE)
             # If at least one pattern matches all white pixels in the neighborhood, return match
-            return np.any([np.all(neighborhood_mask[pattern]) for pattern in patterns])
+            #return np.any([np.all(neighborhood_mask[pattern]) for pattern in patterns])
 
         # Create an empty image to mark bifurcations and crossings
         bifurcation_points = []
@@ -72,14 +90,15 @@ class FeatureExtractor:
                 # Check if the number of white pixels suggests a potential crossing or bifurcation
                 if 3 <= num_white_pixels <= 6:
                     # Check for bifurcation pattern
-                    if is_bifurcation_or_crossing_shape(neighborhood):
-                        bifurcation_points.append([y, x])
+                    match, shape, direction = is_bifurcation_or_crossing_shape(neighborhood)
+                    if match:
+                        bifurcation_points.append([y, x, shape, direction])
                         # Move to the next neighborhood by skipping over the relevant area
                         x += 1  # Skip to the next potential neighborhood
 
                 x += 1  # Move to the next pixel in the same row
             y += 1  # Move to the next row, this can result in one bifurcation being present several times but should still somehow work
-
+        
         return bifurcation_points  # Return the coordinates of the bifurcation points
     
     # Method to extract vein curvature
@@ -127,8 +146,8 @@ class FeatureExtractor:
         endpoints = np.array([])  # Dummy value
         return []
 
-    # Method to create a full descriptor combining all features
-    def create_descriptor(self):
+    # Method to combine all features
+    def get_features(self):
         """
         This method creates a feature descriptor by combining various vein features.
         """

@@ -22,7 +22,7 @@ def show_results(image_path):
     
     image, vein_mask, masked_image, clahe_image, blurred_image, sharp_image, result, result_normalized, result_normalized_without_noise = pipeline(image_path, intermediate=True)
 
-    descriptor = FeatureExtractor(result_normalized_without_noise).create_descriptor()
+    descriptor = FeatureExtractor(result_normalized_without_noise).get_features()
     print(descriptor)
 
     # Plotting
@@ -73,8 +73,8 @@ def compare_2_images(img1, img2):
     img1 = pipeline(img1)
     img2 = pipeline(img2)
 
-    descriptor1 = FeatureExtractor(img1).create_descriptor()
-    descriptor2 = FeatureExtractor(img2).create_descriptor()
+    descriptor1 = FeatureExtractor(img1).get_features()
+    descriptor2 = FeatureExtractor(img2).get_features()
 
     # The lower score the more similar they are
     score = Comparator().compare_descriptors(img1, img2, descriptor1, descriptor2)
