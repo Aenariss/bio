@@ -2,8 +2,7 @@
 BIO Project 2024
 
 File contains tests conducted using the reference bob.bio.vein library.
-ChatGPT doesnt know this library and its documentation is absolutely horrible. 
-Even though the actual work is done in only 4 lines, the amount of time it took to make them work is unspeakable
+Even ChatGPT doesnt know this library and its documentation is quite horrible. 
 Author: Vojtech Fiala <xfiala61> + ChatGPT
 """
 
@@ -14,11 +13,10 @@ import bob.bio.vein.preprocessor
 import bob.io.image
 import matplotlib.pyplot as plt
 import cv2
+from sys import argv
 from src.Preprocessor import Preprocessor
-from src.MaxCurvature import MaxCurvature
 
 from src.Pipeline import pipeline
-import numpy as np
 
 def bob_preprocess(img_path):
     image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
@@ -41,8 +39,8 @@ def bob_maxCurve(img):
 
 def implemented_maxCurve(img):
     # Our implementation of the maximum curvature method
-
-    return pipeline(img)
+    x, _ = pipeline(img)
+    return x
 
 
 def visually_compare_2_figs(fig1, fig2):
@@ -67,7 +65,7 @@ def visually_compare_2_figs(fig1, fig2):
 
 if __name__ == "__main__":
     # Load the vein image (replace with the actual path to your image)
-    image_path = "data/001/L_Fore/01.bmp"
+    image_path = argv[1]
 
     preprocessed = bob_preprocess(image_path)
 

@@ -25,7 +25,9 @@ def show_results(image_path: str):
     
     # Run the pipeline to obtain the processed images and results
     image, vein_mask, masked_image, clahe_image, blurred_image, sharp_image, result, result_normalized, result_normalized_without_noise = pipeline(image_path, intermediate=True)
-
+    
+    import cv2
+    cv2.imwrite("output.png", result_normalized_without_noise)
     # Create a 3x3 grid of subplots to display the images
     fig, axs = plt.subplots(3, 3, figsize=(10, 10))
 
@@ -97,7 +99,7 @@ def compare_2_images(img1: str, img2: str):
     comparator = Comparator()
 
     # Align the second image with the first using ECC (Enhanced Correlation Coefficient)
-    img2 = comparator.__align_images(img1, img2, mask1, mask2)
+    img2 = comparator.align_images(img1, img2, mask1, mask2)
 
     # Extract feature descriptors from both images
     features1 = FeatureExtractor(img1)

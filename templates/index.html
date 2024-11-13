@@ -74,8 +74,9 @@ Author:
     </form>
     {% if score %}
         <div class="message {% if result %}success{% else %}error{% endif %}">
-            <h2>{{ result }}</h2>
+            <h2>{% if result %} The fingers match! 😌 {% else %} The fingers do not match 😭 {% endif %}</h2>
             <h2>Similarity score: {{ score }}</h2>
+            <h2>Score needed (threshold): {{ threshold }}</h2>
         </div>
     {% endif %}
     {% if error %} 

@@ -32,23 +32,33 @@ def index():
     image2_data = np.frombuffer(image2.read(), np.uint8)
 
     try:
-        img1 = pipeline(image1_data)
-        img2 = pipeline(image2_data)
-    except:
+        # Process the images and obtain vein masks
+        img1, mask1 = pipeline(image1_data)
+        img2, mask2 = pipeline(image2_data)
+
+        # Initialize comparator
+        comparator = Comparator()
+
+        # Align the second image with the first using ECC (Enhanced Correlation Coefficient)
+        img2 = comparator.align_images(img1, img2, mask1, mask2)
+
+        # Extract feature descriptors from both images
+        features1 = FeatureExtractor(img1)
+        descriptor1 = features1.get_features()
+
+        features2 = FeatureExtractor(img2)
+        descriptor2 = features2.get_features()
+
+    except Exception as e: 
+        print(e)
         return render_template('index.html', error=True)
 
-    #descriptor1 = FeatureExtractor(img1).create_descriptor()
-    #descriptor2 = FeatureExtractor(img2).create_descriptor()
+    # Calculate and print the similarity score
+    score = comparator.compare_descriptors(descriptor1, descriptor2)
 
-    # The lower score the more similar they are
-    #score = Comparator().compare_descriptors(descriptor1, descriptor2)
+    result = score < comparator.threshold
 
-    score = Comparator(threshold=14).compare(img1, img2)
-
-    result = score[0]
-    score = score[1]
-
-    return render_template('index.html', result=result, score=score)
+    return render_template('index.html', result=result, score=score, threshold=comparator.threshold)
 
 if __name__ == '__main__':
     app.run()

@@ -27,7 +27,7 @@ class Comparator:
         """
         self.threshold = threshold
 
-    def __align_images(self, image1: np.ndarray, image2: np.ndarray, mask1: np.ndarray, mask2: np.ndarray) -> np.ndarray:
+    def align_images(self, image1: np.ndarray, image2: np.ndarray, mask1: np.ndarray, mask2: np.ndarray) -> np.ndarray:
         """
         Aligns `image2` to `image1` using the Enhanced Correlation Coefficient (ECC) method.
         
@@ -165,7 +165,7 @@ class Comparator:
             for finger in data[person]:
                 if break_flag:
                     break
-                print(f"Comparing reference finger with finger {finger} of person {person}...")
+                print(f"Comparing reference finger {original_finger} from person {original_id_person} with finger {finger} of person {person}...")
                 for photo in data[person][finger]:
                     # Every 30 finger images, change the original to have True Positive or False Negative that make sense, not just from 10 samples
                     if (total_finger_count % 30 == 0):
@@ -184,7 +184,7 @@ class Comparator:
                     current_veins, current_mask = pipeline(photo)
                     
                     # Align current image to the reference image
-                    current_veins = self.__align_images(original_veins, current_veins, original_mask, current_mask)
+                    current_veins = self.align_images(original_veins, current_veins, original_mask, current_mask)
 
                     # Extract features from the aligned image
                     cmp_features = FeatureExtractor(current_veins)
@@ -217,8 +217,8 @@ class Comparator:
 
                     total_finger_count += 1
 
-                    if (total_finger_count == 30):
-                        break_flag = True
+                    #if (total_finger_count == 30):
+                    #    break_flag = True
                     
         print(f"False Match Rate (False positive): {false_positives / different_matches}")
         print(f"False Non-Match Rate (False negative): {false_negatives / same_matches}")
@@ -226,7 +226,7 @@ class Comparator:
         print(f"True Non-Match Rate (True Negative): {true_nonmatches / different_matches}")
         return results
 
-    def __compare_bifurcations(self, b1: list, b2: list, endpoints: bool = False, distance_threshold: int = 20) -> float:
+    def __compare_bifurcations(self, img, b1: list, b2: list, endpoints: bool = False, distance_threshold: int = 20) -> float:
         """
         Compares two sets of bifurcations or endpoints, calculating a similarity score based on spatial and
         structural proximity.
@@ -251,7 +251,26 @@ class Comparator:
         # Extract x, y coordinates from both sets of bifurcations
         coords1 = np.array(b1[:, :2], dtype=int)
         coords2 = np.array(b2[:, :2], dtype=int)
+
+
+        '''
+        # Create a color image (3 channels) with the same size as the grayscale image, initialized to black
+        colored_image = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+        for coord in coords1:
+            y, x = coord  # Unpack the coordinates
+            # Draw a circle at each coordinate
+            cv2.circle(colored_image , (x, y), radius=5, color=(255, 0, 0), thickness=1)
+        colored_image = cv2.addWeighted(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR), 1, colored_image, 1, 0)
+        import matplotlib.pyplot as plt
+        plt.tight_layout()
+        plt.imshow(colored_image)
+        plt.title("Zvyraznene Bifurcations a Crossings")
+        plt.axis('off')  # Turn off the axis
+        plt.show()
+        '''
         
+
+
         # Calculate pairwise Euclidean distances between all points in coords1 and coords2
         diff = coords1[:, None, :] - coords2[None, :, :]
         distances = np.sqrt(np.sum(diff**2, axis=2))
@@ -302,7 +321,7 @@ class Comparator:
 
         return normalized_penalty
 
-    def __compare_endpoints(self, e1: list, e2: list) -> float:
+    def __compare_endpoints(self, skelet, e1: list, e2: list) -> float:
         """
         Compares the endpoints of two vein structures using a Euclidean distance-based comparison.
         
@@ -313,7 +332,7 @@ class Comparator:
         Returns:
             float: A similarity score, where lower values indicate more similarity.
         """
-        return self.__compare_bifurcations(e1, e2, endpoints=True, distance_threshold=50)
+        return self.__compare_bifurcations(skelet, e1, e2, endpoints=True, distance_threshold=50)
 
     def __compare_overlap(self, img1: np.ndarray, img2: np.ndarray) -> float:
         """
@@ -358,7 +377,7 @@ class Comparator:
         more_important_increase = 1.5
 
         # Compare bifurcations, contributing to similarity score
-        score += self.__compare_bifurcations(features1['bifurcations'], features2['bifurcations'])
+        score += self.__compare_bifurcations(features1['skeleton'], features1['bifurcations'], features2['bifurcations'])
         
         # Compare local histograms across regions
         score += self.__local_histogram_comparison(features1['localHistograms'], features2['localHistograms'])
@@ -367,7 +386,7 @@ class Comparator:
         score += more_important_increase * self.__compare_overlap(features1['maxCurvature'], features2['maxCurvature'])
 
         # Compare endpoints, adding to the similarity score
-        score += self.__compare_endpoints(features1['endpoints'], features2['endpoints'])
+        score += self.__compare_endpoints(features1['skeleton'], features1['endpoints'], features2['endpoints'])
 
         # Normalize score to [0, 100] scale; lower scores indicate higher similarity
         number_of_comparisons = 4  # Update if features are added or removed

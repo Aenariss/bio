@@ -35,7 +35,7 @@ class Preprocessor:
         roi[height // 4:3 * height // 4, width // 4:3 * width // 4] = True
         return roi
 
-    def __detect_finger_vein_mask(self, image: np.ndarray) -> np.ndarray:
+    def detect_finger_vein_mask(self, image: np.ndarray) -> np.ndarray:
         """
         Detect the finger vein mask by applying thresholding and morphological operations.
         
@@ -79,7 +79,7 @@ class Preprocessor:
                 - sharp_image: np.ndarray - The image after applying unsharp masking to enhance details.
         """
         # Generate the vein mask by detecting finger veins
-        vein_mask = self.__detect_finger_vein_mask(image)
+        vein_mask = self.detect_finger_vein_mask(image)
         # Apply the vein mask to the original image to isolate the vein region
         masked_image = cv2.bitwise_and(image, image, mask=vein_mask)
         
