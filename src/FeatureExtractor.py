@@ -113,9 +113,25 @@ class FeatureExtractor:
         """
         This method identifies the endpoints of veins, where the vein lines terminate.
         """
-        # Placeholder: implement vein endpoint detection
-        endpoints = np.array([])  # Dummy value
-        return []
+        # Skeletonize the image (if not already skeletonized)
+        skeleton = self.removed_artefacts
+
+        # Get the coordinates of the endpoints (pixels with exactly one neighbor)
+        endpoints = []
+        y = 1  # Start from the first row to avoid out-of-bounds
+        while y < skeleton.shape[0] - 1:
+            x = 1  # Start from the first column to avoid out-of-bounds
+            while x < skeleton.shape[1] - 1:
+                # Check the 8-connectivity (neighbors of the pixel)
+                neighborhood = skeleton[y-1:y+2, x-1:x+2].flatten()
+                # Count the number of neighbors that are part of the skeleton (value 1)
+                neighbor_count = np.sum(neighborhood == self.WHITE)  # Exclude the center pixel
+                if neighbor_count == 1:
+                    endpoints.append([x, y])
+                    x += 2 # move onto the next neighborhood
+                x += 1
+            y += 2
+        return endpoints
 
     # Method to combine all features
     def get_features(self):

@@ -151,17 +151,14 @@ class Comparator:
         return results
 
     # Comparison bifurcations
-    def __compare_bifurcations(self, b1, b2):
-        
-        b1 = sorted(b1, key=lambda item: (item[0], item[1]))
-        b2 = sorted(b2, key=lambda item: (item[0], item[1]))
+    def __compare_bifurcations(self, b1, b2, endpoints=False, distance_threshold=20):
 
         b1 = np.array(b1)
         b2 = np.array(b2)
 
+        # If no present, just return the worst possible
         if len(b1) == 0 or len(b2) == 0:
-            raise RuntimeError("Could not extract bifurcations! Invalid image!")
-
+            return 100
 
         # Extract x, y coordinates from arr1 and arr2
         coords1 = np.array(b1[:, :2], dtype=int)
@@ -177,10 +174,12 @@ class Comparator:
         matched_indices_list2 = set()  # Track matched indices in list2 to avoid duplicate matches
 
         # Tolerance how distant at most the points can be to even be compared, empirically set to 20
-        distance_threshold = 20 
-
         # maximum penalty possible to serve where normal penalty can;t be calculated (mismatched array sizes...)
-        maximum_penalty = distance_threshold + 10 + 5
+        maximum_penalty = 0
+        if endpoints:
+            maximum_penalty = distance_threshold
+        else:
+            maximum_penalty = distance_threshold + 10 + 5
 
         for i in range(distances.shape[0]):
             # Find the closest point in list2 for point i in list1
@@ -193,16 +192,23 @@ class Comparator:
                 if min_dist_index not in matched_indices_list2:
                     matched_indices_list2.add(min_dist_index)
 
-                    # Extract shapes and directions for comparison
-                    shape1, dir1 = b1[i, 2], b1[i, 3]
-                    shape2, dir2 = b2[min_dist_index, 2], b2[min_dist_index, 3]
-                    
-                    # Compare shapes and calculate direction difference
-                    shape_match = shape1 == shape2
-                    direction_match = dir1 == dir2
+                    # bifurcations
+                    if not endpoints:
+                        # Extract shapes and directions for comparison
+                        shape1, dir1 = b1[i, 2], b1[i, 3]
+                        shape2, dir2 = b2[min_dist_index, 2], b2[min_dist_index, 3]
+                        
+                        # Compare shapes and calculate direction difference
+                        shape_match = shape1 == shape2
+                        direction_match = dir1 == dir2
 
-                    penalty = min_distance + 10 * int(not shape_match) + 5 * int(not direction_match) # Penalty is the distance + 10 for mismatch of shape + 5 for mismatch of direction
-                    matches.append(penalty)
+                        penalty = min_distance + 10 * int(not shape_match) + 5 * int(not direction_match) # Penalty is the distance + 10 for mismatch of shape + 5 for mismatch of direction
+                        matches.append(penalty)
+                    # endpoints
+                    else:   
+
+                        # Penalty is just the distance for now (you can add more penalties if needed)
+                        matches.append(min_distance)
             else:
                 # No valid match within the threshold for this point in list1
                 matches.append(maximum_penalty)
@@ -219,6 +225,9 @@ class Comparator:
         normalized_penalty = 100 * (total_penalty / maximum_possible_penalty)
 
         return normalized_penalty
+
+    def __compare_endpoints(self, e1, e2):
+        return self.__compare_bifurcations(e1, e2, endpoints=True, distance_threshold=50)
 
     def __compare_overlap(self, img1, img2):
         # Convert images to float32 before phase correlation
@@ -237,26 +246,36 @@ class Comparator:
         return 100 - overlap_percentage # how much are they different percentage
 
     # Method to compare two descriptors
-    def compare_descriptors(self, img1, img2, skeleton1, skeleton2, descriptor1, descriptor2):
+    def compare_descriptors(self, img1, img2, skeleton1, skeleton2, features1, features2):
         """
         Compares two descriptors and returns a similarity score.
         """
         score = 0
 
+        more_important_increase = 1.2
+
         # compare bifurcations using euclidean distance
-        score += self.__compare_bifurcations(descriptor1['bifurcations'], descriptor2['bifurcations'])
+        #print("Comparing bifs...")
+        score += self.__compare_bifurcations(features1['bifurcations'], features2['bifurcations'])
 
         # structural similarity, should we do this? kinda works but produces lot of false negatives
+        #print("Comparing ssim...")
         score += self.__ssim_comparison(img1, img2)
+        
+        #print("Comparing local histogram...")
+        score += self.__local_histogram_comparison(img1, img2) # increase effectiveness
 
-        score += self.__local_histogram_comparison(img1, img2)
-
+        #print("Comparing overlap...")
         score += self.__compare_overlap(skeleton1, skeleton2) # seems usable, some false negatives... maybe remove later
 
+        #print("Comparing endpoints...")
+        score += self.__compare_endpoints(features1['endpoints'], features2['endpoints'])
+
         # normalize the score into <0, 100>
-        number_of_comparisons = 4 # Rewrite should some be added/removed
-        worst_case = number_of_comparisons * 100
+        number_of_comparisons = 5 # Rewrite should some be added/removed
+        not_standard = 0
+        worst_case = more_important_increase * not_standard * 100 + (number_of_comparisons - not_standard) * 100
         score = 100 * (score / worst_case)
         
-        return score  # The lower the score, the more similar the two descriptors
+        return int(score)  # The lower the score, the more similar the two descriptors
 
