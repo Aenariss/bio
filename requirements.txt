@@ -1,7 +1,8 @@
 bob.bio.vein
+bob.io.base
 numpy
 opencv-python
 matplotlib
 scipy
-argparse
+scikit-image
 flask
