@@ -252,7 +252,6 @@ class Comparator:
         coords1 = np.array(b1[:, :2], dtype=int)
         coords2 = np.array(b2[:, :2], dtype=int)
 
-
         '''
         # Create a color image (3 channels) with the same size as the grayscale image, initialized to black
         colored_image = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
@@ -269,8 +268,6 @@ class Comparator:
         plt.show()
         '''
         
-
-
         # Calculate pairwise Euclidean distances between all points in coords1 and coords2
         diff = coords1[:, None, :] - coords2[None, :, :]
         distances = np.sqrt(np.sum(diff**2, axis=2))
