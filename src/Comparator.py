@@ -6,6 +6,7 @@ Author:
     Vojtech Fiala <xfiala61>
     ChatGPT
     Gemini
+    Claude
 """
 
 import numpy as np
@@ -15,267 +16,363 @@ from src.DataLoader import DataLoader
 from src.Pipeline import pipeline
 from src.FeatureExtractor import FeatureExtractor
 
-from scipy.spatial.distance import cdist
-from skimage.metrics import structural_similarity
-from scipy.spatial.distance import cosine
-from scipy.signal import correlate2d
-
 class Comparator:
-    def __init__(self, threshold=14):
+    def __init__(self, threshold: int = 60):
+        """
+        Initializes the ImageComparator with a similarity threshold.
+        
+        Args:
+            threshold (int): Threshold value for similarity comparison.
+                             Images with a similarity score below this threshold are considered a match.
+        """
         self.threshold = threshold
 
-    def __align_images(self, image1, image2, mask1, mask2):
-        """Align images using Enhanced Correlation Coefficient (ECC) method"""
-        # Define the motion model
-        warp_mode = cv2.MOTION_EUCLIDEAN  # Supports translation + rotation
-            
-        # Define termination criteria
+    def __align_images(self, image1: np.ndarray, image2: np.ndarray, mask1: np.ndarray, mask2: np.ndarray) -> np.ndarray:
+        """
+        Aligns `image2` to `image1` using the Enhanced Correlation Coefficient (ECC) method.
+        
+        Args:
+            image1 (np.ndarray): The reference image to which `image2` will be aligned.
+            image2 (np.ndarray): The image to align with `image1`.
+            mask1 (np.ndarray): Binary mask of `image1`, used in alignment.
+            mask2 (np.ndarray): Binary mask of `image2`, used in alignment.
+        
+        Returns:
+            np.ndarray: `image2` aligned to `image1` using an affine transformation.
+        """
+        # Define motion model allowing translation and rotation
+        warp_mode = cv2.MOTION_EUCLIDEAN
+
+        # Define termination criteria for the ECC algorithm: maximum iterations or epsilon for convergence
         criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 1000, 1e-8)
-            
-        # Initialize the warp matrix
+        
+        # Initialize the warp matrix for affine transformation
         warp_matrix = np.eye(2, 3, dtype=np.float32)
-            
+        
+        # Compute the warp matrix using the ECC algorithm
         _, warp_matrix = cv2.findTransformECC(
-                mask1, 
-                mask2,
-                warp_matrix, 
-                warp_mode,
-                criteria,
-                inputMask=None,
-                gaussFiltSize=1
+            mask1, 
+            mask2,
+            warp_matrix, 
+            warp_mode,
+            criteria,
+            inputMask=None,
+            gaussFiltSize=1
         )
-                
-        img2_binary_aligned = cv2.warpAffine(image2, warp_matrix, (image1.shape[1], image1.shape[0]),
-                                                flags=cv2.INTER_NEAREST + cv2.WARP_INVERSE_MAP,
-                                                borderMode=cv2.BORDER_CONSTANT)
+        
+        # Apply the affine transformation to align image2 with image1
+        img2_binary_aligned = cv2.warpAffine(
+            image2, 
+            warp_matrix, 
+            (image1.shape[1], image1.shape[0]),
+            flags=cv2.INTER_NEAREST + cv2.WARP_INVERSE_MAP,
+            borderMode=cv2.BORDER_CONSTANT
+        )
 
         return img2_binary_aligned
 
-
-    # Very powerful, could be used on its own with some false negatives
-    def __local_histogram_comparison(self, vein_image_1, vein_image_2, patch_size=(50, 50)):
+    def __local_histogram_comparison(self, h1: list, h2: list) -> float:
         """
-        Compare local histograms of two vein pattern images. The function divides both images into
-        smaller patches and compares their histograms at each corresponding location.
+        Compares two lists of histograms using correlation to evaluate similarity.
         
-        Parameters:
-            vein_image_1: First vein pattern image (grayscale).
-            vein_image_2: Second vein pattern image (grayscale).
-            patch_size: Size of the patches to divide the images into (default is 50x50).
+        Args:
+            h1 (list): List of histograms from image patches of the first image.
+            h2 (list): List of histograms from image patches of the second image.
         
         Returns:
-            Normalized similarity score (0-100) where 0 means perfect match and 100 means no match.
+            float: Normalized similarity score, where a lower score indicates higher similarity.
+        
+        Raises:
+            RuntimeError: If the input histograms do not match in length, indicating mismatched images.
         """
+        # Ensure both histogram lists have the same length for valid comparison
+        n_of_hists = len(h1)
+        if n_of_hists != len(h2):
+            raise RuntimeError("Histograms of different sizes indicate invalid images were used!")
 
-        # Get image dimensions
-        height, width = vein_image_1.shape
-        patch_height, patch_width = patch_size
-
-        # Initialize a list to hold similarity scores for each patch
+        # List to store similarity scores for each patch
         similarity_scores = []
 
-        # Loop over the images and divide them into patches
-        for y in range(0, height, patch_height):
-            for x in range(0, width, patch_width):
-                # Define the patch region in both images
-                patch1 = vein_image_1[y:y + patch_height, x:x + patch_width]
-                patch2 = vein_image_2[y:y + patch_height, x:x + patch_width]
+        for i in range(n_of_hists):
+            hist1 = h1[i]
+            hist2 = h2[i]
 
-                # Skip patches that are smaller than the desired patch size (at image boundaries)
-                if patch1.shape[0] != patch_height or patch1.shape[1] != patch_width:
-                    continue
+            # Normalize both histograms
+            hist1 = cv2.normalize(hist1, hist1).flatten()
+            hist2 = cv2.normalize(hist2, hist2).flatten()
 
-                # Calculate histograms for both patches
-                hist1 = cv2.calcHist([patch1], [0], None, [256], [0, 256])
-                hist2 = cv2.calcHist([patch2], [0], None, [256], [0, 256])
+            # Compute correlation between histograms to evaluate similarity
+            correlation = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
 
-                # Normalize the histograms
-                hist1 = cv2.normalize(hist1, hist1).flatten()
-                hist2 = cv2.normalize(hist2, hist2).flatten()
+            # Add the similarity score for this patch to the list
+            similarity_scores.append(correlation)
 
-                # Compare the histograms using correlation
-                correlation = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
-
-                # Store the similarity score for this patch
-                similarity_scores.append(correlation)
-
-        # Calculate the average similarity score across all patches
+        # Compute the average similarity score across all patches
         avg_similarity = np.mean(similarity_scores)
 
-        # Normalize the similarity score to range [0, 100000], where 0 is a perfect match... values have been empirically observed to be only <100  
+        # Normalize similarity score to range [0, 100000], where lower values indicate higher similarity
         normalized_score = 100000 * (1 - avg_similarity)
 
         return normalized_score
-    
-    # https://en.wikipedia.org/wiki/Structural_similarity_index_measure
-    def __ssim_comparison(self, img1, img2):
+
+    def compare_all(self, compared_img_path: str) -> list:
         """
-        measures image similarity by comparing three main components: 
-            luminance, contrast, and structure between two images. 
-        It captures perceived visual quality by focusing on pixel intensity patterns rather than absolute differences
-        """
-        # Compute SSIM between two images
-        ssim_score, _ = structural_similarity(img1, img2, full=True)
+        Compare multiple images in a dataset against a given reference image.
         
-        # Normalize the SSIM score to a range [0, 100]
-        normalized_ssim_score = 100 * (1 - ssim_score)
-        return normalized_ssim_score
-
-
-    def compare_all(self, compared_img_path):
-        """
-        Compare multiple pictures in a set to a given picture and get the match results
+        Args:
+            compared_img_path (str): Path to the reference image against which all other images will be compared.
+        
+        Returns:
+            list: A list of similarity scores where each score represents the similarity between the reference image
+                  and each image in the dataset. Lower scores indicate better matches.
         """
         results = []
+        
+        # Initialize DataLoader with the reference image path
         loader = DataLoader(original_finger=compared_img_path)
+        
+        # Load images for comparison
         data = loader.load_images()
+        
+        # Extract data identifying the original image owner
         original_id_person, original_finger, original_id_finger = loader.get_original_image_data()
+        
+        # Extract vein pattern and mask from the reference image
         original_veins, original_mask = pipeline(compared_img_path)
+        
+        # Extract features from the reference image
         original_featuresExtractor = FeatureExtractor(original_veins)
         original_features = original_featuresExtractor.get_features()
 
-        print("Starting comparison of person {} finger {} photo {} with everyone else, the lower the score the better the match...".format(original_id_person, original_finger, original_id_finger))
+        print(f"Starting comparison of person {original_id_person} finger {original_finger} photo {original_id_finger} with all dataset entries...")
+
+        false_negatives = 0
+        false_positives = 0
+        true_matches = 0
+        true_nonmatches = 0
+
+        same_matches = 0
+        different_matches = 0
+
+        total_finger_count = 0
+
+        break_flag = False
+        
         for person in data:
-            print("Starting comparison of person {} and {}...".format(original_id_person, person))
+            if break_flag:
+                break
+            print(f"Comparing reference person with person {person}...")
             for finger in data[person]:
-                print("Starting comparison with finger {} belonging to person {}...".format(finger, person))
+                if break_flag:
+                    break
+                print(f"Comparing reference finger with finger {finger} of person {person}...")
                 for photo in data[person][finger]:
+                    # Every 30 finger images, change the original to have True Positive or False Negative that make sense, not just from 10 samples
+                    if (total_finger_count % 30 == 0):
+                        # Extract data identifying the original image owner
+                        original_id_person, original_finger, original_id_finger = person, finger, photo
+
+                        compared_img_path = original_id_finger
+                        
+                        # Extract vein pattern and mask from the reference image
+                        original_veins, original_mask = pipeline(compared_img_path)
+                        
+                        # Extract features from the reference image
+                        original_featuresExtractor = FeatureExtractor(original_veins)
+                        original_features = original_featuresExtractor.get_features()
+                    # Extract vein pattern and mask from the current photo
                     current_veins, current_mask = pipeline(photo)
+                    
+                    # Align current image to the reference image
                     current_veins = self.__align_images(original_veins, current_veins, original_mask, current_mask)
 
+                    # Extract features from the aligned image
                     cmp_features = FeatureExtractor(current_veins)
                     cmp_descriptor = cmp_features.get_features()
-                    result_score = self.compare_descriptors(original_veins, current_veins, original_featuresExtractor.get_skeleton(), cmp_features.get_skeleton(), original_features, cmp_descriptor)
-                    print("Score: {}".format(result_score))
+                    
+                    # Compare features and calculate similarity score
+                    result_score = self.compare_descriptors(original_features, cmp_descriptor)
+
+                    if result_score < self.threshold:
+                        if person == original_id_person and finger == original_finger:
+                            true_matches += 1
+                            same_matches += 1
+                        else:
+                            false_positives += 1
+                            different_matches += 1
+                        print("Match!", end=' ')
+                    else:
+                        if person == original_id_person and finger == original_finger:
+                            false_negatives += 1
+                            same_matches += 1
+                        else:
+                            true_nonmatches += 1
+                            different_matches += 1
+                        print("Non-match!", end=' ')
+
+                    print(f"Similarity score: {result_score}")
+                
+
                     results.append(result_score)
+
+                    total_finger_count += 1
+
+                    if (total_finger_count == 30):
+                        break_flag = True
+                    
+        print(f"False Match Rate (False positive): {false_positives / different_matches}")
+        print(f"False Non-Match Rate (False negative): {false_negatives / same_matches}")
+        print(f"True Match Rate (True positive): {true_matches / same_matches}")
+        print(f"True Non-Match Rate (True Negative): {true_nonmatches / different_matches}")
         return results
 
-    # Comparison bifurcations
-    def __compare_bifurcations(self, b1, b2, endpoints=False, distance_threshold=20):
-
+    def __compare_bifurcations(self, b1: list, b2: list, endpoints: bool = False, distance_threshold: int = 20) -> float:
+        """
+        Compares two sets of bifurcations or endpoints, calculating a similarity score based on spatial and
+        structural proximity.
+        
+        Args:
+            b1 (list): List of bifurcation or endpoint coordinates and properties for the reference image.
+            b2 (list): List of bifurcation or endpoint coordinates and properties for the comparison image.
+            endpoints (bool): Whether the points represent endpoints (True) or bifurcations (False).
+            distance_threshold (int): Maximum distance between points in b1 and b2 to be considered a match.
+        
+        Returns:
+            float: A normalized similarity score, where lower values indicate a higher similarity.
+        """
+        # Convert bifurcation lists to numpy arrays for easier manipulation
         b1 = np.array(b1)
         b2 = np.array(b2)
 
-        # If no present, just return the worst possible
+        # Return maximum penalty if either list is empty, indicating no features
         if len(b1) == 0 or len(b2) == 0:
             return 100
 
-        # Extract x, y coordinates from arr1 and arr2
+        # Extract x, y coordinates from both sets of bifurcations
         coords1 = np.array(b1[:, :2], dtype=int)
         coords2 = np.array(b2[:, :2], dtype=int)
         
-        # Step 1: Compute all pairwise Euclidean distances between coords1 and coords2
-        # (Using broadcasting for fast vectorized distance calculation)
-        diff = coords1[:, None, :] - coords2[None, :, :]   # Shape: (len(list1), len(list2), 2)
-        distances = np.sqrt(np.sum(diff**2, axis=2))       # Shape: (len(list1), len(list2))
+        # Calculate pairwise Euclidean distances between all points in coords1 and coords2
+        diff = coords1[:, None, :] - coords2[None, :, :]
+        distances = np.sqrt(np.sum(diff**2, axis=2))
         
-        # Step 2: Find the nearest point in list2 for each point in list1 within the threshold
+        # Initialize structures for tracking matched points and penalties
         matches = []
-        matched_indices_list2 = set()  # Track matched indices in list2 to avoid duplicate matches
-
-        # Tolerance how distant at most the points can be to even be compared, empirically set to 20
-        # maximum penalty possible to serve where normal penalty can;t be calculated (mismatched array sizes...)
-        maximum_penalty = 0
-        if endpoints:
-            maximum_penalty = distance_threshold
-        else:
-            maximum_penalty = distance_threshold + 10 + 5
+        matched_indices_list2 = set()
+        
+        # Define maximum penalty, adjusted based on whether points are endpoints or bifurcations
+        maximum_penalty = distance_threshold if endpoints else distance_threshold + 15
 
         for i in range(distances.shape[0]):
-            # Find the closest point in list2 for point i in list1
+            # Identify valid matches within the threshold for the current point in b1
             within_threshold = distances[i] <= distance_threshold
             if np.any(within_threshold):
-                # Get the minimum distance and its index among valid matches within the threshold
-                min_dist_index = np.argmin(np.where(within_threshold, distances[i], np.inf)) # Take the smallest euclidean value (its index)
-                min_distance = distances[i, min_dist_index] # take the two closest
+                # Select the closest match within threshold
+                min_dist_index = np.argmin(np.where(within_threshold, distances[i], np.inf))
+                min_distance = distances[i, min_dist_index]
                 
+                # Only consider this match if the point in b2 hasn't already been matched
                 if min_dist_index not in matched_indices_list2:
                     matched_indices_list2.add(min_dist_index)
 
-                    # bifurcations
                     if not endpoints:
-                        # Extract shapes and directions for comparison
+                        # Bifurcation: compare shape and direction properties for additional penalties
                         shape1, dir1 = b1[i, 2], b1[i, 3]
                         shape2, dir2 = b2[min_dist_index, 2], b2[min_dist_index, 3]
                         
-                        # Compare shapes and calculate direction difference
                         shape_match = shape1 == shape2
                         direction_match = dir1 == dir2
-
-                        penalty = min_distance + 10 * int(not shape_match) + 5 * int(not direction_match) # Penalty is the distance + 10 for mismatch of shape + 5 for mismatch of direction
+                        
+                        penalty = min_distance + 10 * int(not shape_match) + 5 * int(not direction_match)
                         matches.append(penalty)
-                    # endpoints
-                    else:   
-
-                        # Penalty is just the distance for now (you can add more penalties if needed)
+                    else:
+                        # Endpoints: only distance penalty is applied
                         matches.append(min_distance)
             else:
-                # No valid match within the threshold for this point in list1
+                # No valid match, apply maximum penalty
                 matches.append(maximum_penalty)
                 
-
-        # Step 3: Handle unmatched points in list2
+        # Add penalties for any unmatched points in coords2
         additional_penalty = sum([maximum_penalty for j in range(len(coords2)) if j not in matched_indices_list2])
 
-        # Total score, the lower the better
+        # Calculate the total penalty and normalize it to a [0, 100] scale
         total_penalty = sum(matches) + additional_penalty
-
-        # Normalize the total_penalty to range [0, 100]
         maximum_possible_penalty = (len(coords1) + len(coords2)) * maximum_penalty
         normalized_penalty = 100 * (total_penalty / maximum_possible_penalty)
 
         return normalized_penalty
 
-    def __compare_endpoints(self, e1, e2):
+    def __compare_endpoints(self, e1: list, e2: list) -> float:
+        """
+        Compares the endpoints of two vein structures using a Euclidean distance-based comparison.
+        
+        Args:
+            e1 (list): List of endpoints for the reference image.
+            e2 (list): List of endpoints for the comparison image.
+        
+        Returns:
+            float: A similarity score, where lower values indicate more similarity.
+        """
         return self.__compare_bifurcations(e1, e2, endpoints=True, distance_threshold=50)
 
-    def __compare_overlap(self, img1, img2):
-        # Convert images to float32 before phase correlation
-        img1 = img1.astype(np.uint8)
-        img2 = img2.astype(np.uint8)
-
-        # Create binary versions after alignment to preserve original intensity values
+    def __compare_overlap(self, img1: np.ndarray, img2: np.ndarray) -> float:
+        """
+        Computes the overlap percentage between two aligned binary images.
+        
+        Args:
+            img1 (np.ndarray): Binary image (reference) after alignment.
+            img2 (np.ndarray): Binary image (comparison) after alignment.
+        
+        Returns:
+            float: The difference in percentage overlap between the two images. Lower values indicate higher similarity.
+        """
+        # Convert images to binary format for overlap calculation
         img1_binary = (img1 > 0).astype(np.uint8)
         img2_binary = (img2 > 0).astype(np.uint8)
 
+        # Calculate overlap (intersection) and union areas
         overlap = img1_binary * img2_binary
         overlap_count = np.sum(overlap)
         union_count = np.sum(img1_binary) + np.sum(img2_binary) - overlap_count
-        overlap_percentage = (overlap_count / union_count) * 100 if union_count != 0 else 0
         
-        return 100 - overlap_percentage # how much are they different percentage
+        # Calculate overlap percentage and return the difference percentage (inverse similarity)
+        overlap_percentage = (overlap_count / union_count) * 100 if union_count != 0 else 0
+        return 100 - overlap_percentage  # How much they differ in percentage
 
-    # Method to compare two descriptors
-    def compare_descriptors(self, img1, img2, skeleton1, skeleton2, features1, features2):
+    def compare_descriptors(self, features1: dict, features2: dict) -> float:
         """
-        Compares two descriptors and returns a similarity score.
+        Compares two feature descriptors and calculates an overall similarity score.
+        
+        Args:
+            features1 (dict): Feature descriptor of the reference image, containing bifurcations, endpoints,
+                              local histograms, max curvature, and skeleton information.
+            features2 (dict): Feature descriptor of the comparison image, containing bifurcations, endpoints,
+                              local histograms, max curvature, and skeleton information.
+        
+        Returns:
+            float: A similarity score normalized to the range [0, 100], where lower values indicate higher similarity.
         """
         score = 0
 
-        more_important_increase = 1.2
+        # Set weighting factor for more important features
+        more_important_increase = 1.5
 
-        # compare bifurcations using euclidean distance
-        #print("Comparing bifs...")
+        # Compare bifurcations, contributing to similarity score
         score += self.__compare_bifurcations(features1['bifurcations'], features2['bifurcations'])
-
-        # structural similarity, should we do this? kinda works but produces lot of false negatives
-        #print("Comparing ssim...")
-        score += self.__ssim_comparison(img1, img2)
         
-        #print("Comparing local histogram...")
-        score += self.__local_histogram_comparison(img1, img2) # increase effectiveness
+        # Compare local histograms across regions
+        score += self.__local_histogram_comparison(features1['localHistograms'], features2['localHistograms'])
 
-        #print("Comparing overlap...")
-        score += self.__compare_overlap(skeleton1, skeleton2) # seems usable, some false negatives... maybe remove later
+        # Compare image overlap based on maximum curvature for structural similarity
+        score += more_important_increase * self.__compare_overlap(features1['maxCurvature'], features2['maxCurvature'])
 
-        #print("Comparing endpoints...")
+        # Compare endpoints, adding to the similarity score
         score += self.__compare_endpoints(features1['endpoints'], features2['endpoints'])
 
-        # normalize the score into <0, 100>
-        number_of_comparisons = 5 # Rewrite should some be added/removed
-        not_standard = 0
+        # Normalize score to [0, 100] scale; lower scores indicate higher similarity
+        number_of_comparisons = 4  # Update if features are added or removed
+        not_standard = 1
         worst_case = more_important_increase * not_standard * 100 + (number_of_comparisons - not_standard) * 100
         score = 100 * (score / worst_case)
         
-        return int(score)  # The lower the score, the more similar the two descriptors
-
+        return score  # Lower score indicates greater similarity
