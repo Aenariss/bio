@@ -72,5 +72,5 @@ if __name__ == "__main__":
     preprocessed = bob_preprocess(image_path)
 
     bob_implementation = bob_maxCurve(preprocessed)
-    our_implementation = implemented_maxCurve(preprocessed[0])
+    our_implementation = implemented_maxCurve(image_path)
     visually_compare_2_figs(bob_implementation, our_implementation)

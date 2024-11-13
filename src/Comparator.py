@@ -10,6 +10,7 @@ Author:
 
 import numpy as np
 import cv2
+
 from src.DataLoader import DataLoader
 from src.Pipeline import pipeline
 from src.FeatureExtractor import FeatureExtractor
@@ -17,13 +18,42 @@ from src.FeatureExtractor import FeatureExtractor
 from scipy.spatial.distance import cdist
 from skimage.metrics import structural_similarity
 from scipy.spatial.distance import cosine
+from scipy.signal import correlate2d
 
 class Comparator:
     def __init__(self, threshold=14):
         self.threshold = threshold
 
+    def __align_images(self, image1, image2, mask1, mask2):
+        """Align images using Enhanced Correlation Coefficient (ECC) method"""
+        # Define the motion model
+        warp_mode = cv2.MOTION_EUCLIDEAN  # Supports translation + rotation
+            
+        # Define termination criteria
+        criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 1000, 1e-8)
+            
+        # Initialize the warp matrix
+        warp_matrix = np.eye(2, 3, dtype=np.float32)
+            
+        _, warp_matrix = cv2.findTransformECC(
+                mask1, 
+                mask2,
+                warp_matrix, 
+                warp_mode,
+                criteria,
+                inputMask=None,
+                gaussFiltSize=1
+        )
+                
+        img2_binary_aligned = cv2.warpAffine(image2, warp_matrix, (image1.shape[1], image1.shape[0]),
+                                                flags=cv2.INTER_NEAREST + cv2.WARP_INVERSE_MAP,
+                                                borderMode=cv2.BORDER_CONSTANT)
+
+        return img2_binary_aligned
+
+
     # Very powerful, could be used on its own with some false negatives
-    def local_histogram_comparison(self, vein_image_1, vein_image_2, patch_size=(50, 50)):
+    def __local_histogram_comparison(self, vein_image_1, vein_image_2, patch_size=(50, 50)):
         """
         Compare local histograms of two vein pattern images. The function divides both images into
         smaller patches and compares their histograms at each corresponding location.
@@ -76,37 +106,6 @@ class Comparator:
         normalized_score = 100000 * (1 - avg_similarity)
 
         return normalized_score
-
-    def __phase_correlation(self, img1, img2):
-        """
-        Phase correlation to compute the shift between two images and measure similarity.
-        Uses Fourier transforms for translation-invariant matching.
-        """
-        # Convert images to float32 for Fourier transform
-        img1 = img1.astype(np.float32)
-        img2 = img2.astype(np.float32)
-
-        # Perform Fourier transform on both images
-        dft1 = np.fft.fft2(img1)
-        dft2 = np.fft.fft2(img2)
-
-        # Compute cross-power spectrum
-        conj_dft2 = np.conj(dft2)
-        cross_power_spectrum = (dft1 * conj_dft2) / (np.abs(dft1 * conj_dft2) + 1e-8)
-
-        # Inverse Fourier transform to get phase correlation
-        inverse_dft = np.fft.ifft2(cross_power_spectrum)
-        correlation_result = np.abs(inverse_dft)
-
-        # Peak value in correlation result indicates the degree of alignment
-        max_corr_value = np.max(correlation_result)
-
-        # Scale the score to make it readable and inverse it to make it lower the better
-        result_score = 100 - int(max_corr_value * 1000)
-
-        result_score = 0 if result_score < 0 else result_score
-        
-        return result_score
     
     # https://en.wikipedia.org/wiki/Structural_similarity_index_measure
     def __ssim_comparison(self, img1, img2):
@@ -122,6 +121,7 @@ class Comparator:
         normalized_ssim_score = 100 * (1 - ssim_score)
         return normalized_ssim_score
 
+
     def compare_all(self, compared_img_path):
         """
         Compare multiple pictures in a set to a given picture and get the match results
@@ -130,8 +130,9 @@ class Comparator:
         loader = DataLoader(original_finger=compared_img_path)
         data = loader.load_images()
         original_id_person, original_finger, original_id_finger = loader.get_original_image_data()
-        original_veins = pipeline(compared_img_path)
-        original_features = FeatureExtractor(original_veins).get_features()
+        original_veins, original_mask = pipeline(compared_img_path)
+        original_featuresExtractor = FeatureExtractor(original_veins)
+        original_features = original_featuresExtractor.get_features()
 
         print("Starting comparison of person {} finger {} photo {} with everyone else, the lower the score the better the match...".format(original_id_person, original_finger, original_id_finger))
         for person in data:
@@ -139,9 +140,12 @@ class Comparator:
             for finger in data[person]:
                 print("Starting comparison with finger {} belonging to person {}...".format(finger, person))
                 for photo in data[person][finger]:
-                    current_veins = pipeline(photo)
-                    cmp_descriptor = FeatureExtractor(current_veins).get_features()
-                    result_score = self.compare_descriptors(original_veins, current_veins, original_features, cmp_descriptor)
+                    current_veins, current_mask = pipeline(photo)
+                    current_veins = self.__align_images(original_veins, current_veins, original_mask, current_mask)
+
+                    cmp_features = FeatureExtractor(current_veins)
+                    cmp_descriptor = cmp_features.get_features()
+                    result_score = self.compare_descriptors(original_veins, current_veins, original_featuresExtractor.get_skeleton(), cmp_features.get_skeleton(), original_features, cmp_descriptor)
                     print("Score: {}".format(result_score))
                     results.append(result_score)
         return results
@@ -149,12 +153,15 @@ class Comparator:
     # Comparison bifurcations
     def __compare_bifurcations(self, b1, b2):
         
-
         b1 = sorted(b1, key=lambda item: (item[0], item[1]))
-        b1 = sorted(b1, key=lambda item: (item[0], item[1]))
+        b2 = sorted(b2, key=lambda item: (item[0], item[1]))
 
         b1 = np.array(b1)
         b2 = np.array(b2)
+
+        if len(b1) == 0 or len(b2) == 0:
+            raise RuntimeError("Could not extract bifurcations! Invalid image!")
+
 
         # Extract x, y coordinates from arr1 and arr2
         coords1 = np.array(b1[:, :2], dtype=int)
@@ -180,8 +187,8 @@ class Comparator:
             within_threshold = distances[i] <= distance_threshold
             if np.any(within_threshold):
                 # Get the minimum distance and its index among valid matches within the threshold
-                min_dist_index = np.argmin(np.where(within_threshold, distances[i], np.inf))
-                min_distance = distances[i, min_dist_index]
+                min_dist_index = np.argmin(np.where(within_threshold, distances[i], np.inf)) # Take the smallest euclidean value (its index)
+                min_distance = distances[i, min_dist_index] # take the two closest
                 
                 if min_dist_index not in matched_indices_list2:
                     matched_indices_list2.add(min_dist_index)
@@ -212,34 +219,25 @@ class Comparator:
         normalized_penalty = 100 * (total_penalty / maximum_possible_penalty)
 
         return normalized_penalty
+
+    def __compare_overlap(self, img1, img2):
+        # Convert images to float32 before phase correlation
+        img1 = img1.astype(np.uint8)
+        img2 = img2.astype(np.uint8)
+
+        # Create binary versions after alignment to preserve original intensity values
+        img1_binary = (img1 > 0).astype(np.uint8)
+        img2_binary = (img2 > 0).astype(np.uint8)
+
+        overlap = img1_binary * img2_binary
+        overlap_count = np.sum(overlap)
+        union_count = np.sum(img1_binary) + np.sum(img2_binary) - overlap_count
+        overlap_percentage = (overlap_count / union_count) * 100 if union_count != 0 else 0
         
-        """
-        # Possibbly move this to FeatureExtractor?
-        def compute_hog_descriptors(image, bifurcations, patch_size=16):
-            hog_descriptors = []
-            for (y, x) in bifurcations:
-                patch = image[y-patch_size//2:y+patch_size//2, x-patch_size//2:x+patch_size//2]
-                if patch.shape == (patch_size, patch_size):
-                    hog_desc = hog(patch, pixels_per_cell=(8, 8), cells_per_block=(1, 1), feature_vector=True)
-                    hog_descriptors.append(hog_desc)
-            return np.array(hog_descriptors)
-
-        descriptors_img1 = compute_hog_descriptors(img1, b1)
-        descriptors_img2 = compute_hog_descriptors(img2, b2)
-
-
-
-        # Compare HOG descriptors with cosine similarity
-        similarity_matrix = cdist(descriptors_img1, descriptors_img2, metric='cosine')
-        min_distances = np.min(similarity_matrix, axis=1)
-        similarity_score = np.mean(min_distances)
-
-        return int(similarity_score * 1000) # the lower the better, UNUSABLE on its own but gives results that might be used together with some other features
-        """
-
+        return 100 - overlap_percentage # how much are they different percentage
 
     # Method to compare two descriptors
-    def compare_descriptors(self, img1, img2, descriptor1, descriptor2):
+    def compare_descriptors(self, img1, img2, skeleton1, skeleton2, descriptor1, descriptor2):
         """
         Compares two descriptors and returns a similarity score.
         """
@@ -248,13 +246,12 @@ class Comparator:
         # compare bifurcations using euclidean distance
         score += self.__compare_bifurcations(descriptor1['bifurcations'], descriptor2['bifurcations'])
 
-        # phase correlation between images
-        score += self.__phase_correlation(img1, img2)
-
         # structural similarity, should we do this? kinda works but produces lot of false negatives
         score += self.__ssim_comparison(img1, img2)
 
-        score += self.local_histogram_comparison(img1, img2)
+        score += self.__local_histogram_comparison(img1, img2)
+
+        score += self.__compare_overlap(skeleton1, skeleton2) # seems usable, some false negatives... maybe remove later
 
         # normalize the score into <0, 100>
         number_of_comparisons = 4 # Rewrite should some be added/removed

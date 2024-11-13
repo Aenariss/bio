@@ -75,6 +75,23 @@ class MaxCurvature:
         k3 = np.zeros_like(src)
         k4 = np.zeros_like(src)
 
+        # Create mask for valid pixels
+        valid_mask = mask > 0
+
+        # Precalculate denominators
+        denom1 = np.power(1 + fx**2, 1.5)
+        denom2 = np.power(1 + fy**2, 1.5)
+        denom3 = np.power(1 + f1**2, 1.5)
+        denom4 = np.power(1 + f2**2, 1.5)
+
+        # Compute curvatures at each pixel of the ROI
+        k1[valid_mask] = fxx[valid_mask] / denom1[valid_mask]
+        k2[valid_mask] = fyy[valid_mask] / denom2[valid_mask]
+        k3[valid_mask] = f11[valid_mask] / denom3[valid_mask]
+        k4[valid_mask] = f22[valid_mask] / denom4[valid_mask]
+
+
+        '''
         # Compute curvatures at each pixel
         for y in range(src.shape[0]):
             for x in range(src.shape[1]):
@@ -83,6 +100,7 @@ class MaxCurvature:
                     k2[y, x] = fyy[y, x] / np.power(1 + fy[y, x] ** 2, 1.5)  # Curvature in y direction
                     k3[y, x] = f11[y, x] / np.power(1 + f1[y, x] ** 2, 1.5)  # Curvature along one diagonal
                     k4[y, x] = f22[y, x] / np.power(1 + f2[y, x] ** 2, 1.5)  # Curvature along the other diagonal
+        '''
 
         # Step 2 - vein connections
         # Scores initialization (Wr and Vt)
@@ -90,65 +108,160 @@ class MaxCurvature:
         Vt = np.zeros_like(src)
 
         # Horizontal direction processing
+        # Vectorized approach using boolean masks and numpy operations
         for y in range(img_h):
-            Wr = 0
-            for x in range(img_w):
-                if k1[y, x] > 0:
-                    Wr += 1
-                if Wr > 0 and (x == img_w - 1 or k1[y, x] <= 0):
-                    pos_end = x if x == img_w - 1 else x - 1
-                    pos_start = pos_end - Wr + 1
-                    max_k1 = np.max(k1[y, pos_start:pos_end + 1])
-                    pos_max = pos_start + np.argmax(k1[y, pos_start:pos_end + 1])
-                    Vt[y, pos_max] += max_k1 * Wr
-                    Wr = 0
+            # Find positions where k1 > 0
+            positive_mask = k1[y, :] > 0
+            
+            # Find the boundaries of continuous positive regions
+            # This detects changes in the mask
+            changes = np.diff(positive_mask.astype(int), prepend=0, append=0)
+            starts = np.where(changes == 1)[0]
+            ends = np.where(changes == -1)[0]
+            
+            # Process each continuous region
+            for start, end in zip(starts, ends):
+                region = k1[y, start:end]
+                Wr = len(region)  # Width of the region
+                
+                # Find maximum value and its position in the region
+                max_val = np.max(region)
+                pos_max = start + np.argmax(region)
+                
+                # Update Vt at the maximum position
+                Vt[y, pos_max] += max_val * Wr
 
         # Vertical direction processing
+        # Vectorized approach using boolean masks and numpy operations
         for x in range(img_w):
-            Wr = 0
-            for y in range(img_h):
-                if k2[y, x] > 0:
-                    Wr += 1
-                if Wr > 0 and (y == img_h - 1 or k2[y, x] <= 0):
-                    pos_end = y if y == img_h - 1 else y - 1
-                    pos_start = pos_end - Wr + 1
-                    max_k2 = np.max(k2[pos_start:pos_end + 1, x])
-                    pos_max = pos_start + np.argmax(k2[pos_start:pos_end + 1, x])
-                    Vt[pos_max, x] += max_k2 * Wr
-                    Wr = 0
+            # Find positions where k2 > 0
+            positive_mask = k2[:, x] > 0
+            
+            # Find the boundaries of continuous positive regions
+            # This detects changes in the mask
+            changes = np.diff(positive_mask.astype(int), prepend=0, append=0)
+            starts = np.where(changes == 1)[0]
+            ends = np.where(changes == -1)[0]
+            
+            # Process each continuous region
+            for start, end in zip(starts, ends):
+                region = k2[start:end, x]
+                Wr = len(region)  # Width of the region
+                
+                # Find maximum value and its position in the region
+                max_val = np.max(region)
+                pos_max = start + np.argmax(region)
+                
+                # Update Vt at the maximum position
+                Vt[pos_max, x] += max_val * Wr
 
+        
         # Diagonal (\) direction processing
         for start in range(img_h + img_w - 1):
-            x, y = (start, 0) if start < img_w else (0, start - img_w + 1)
-            Wr = 0
+            # Get starting position
+            if start < img_w:
+                x_start, y_start = start, 0
+            else:
+                x_start, y_start = 0, start - img_w + 1
+                
+            # Get diagonal values
+            x_indices = []
+            y_indices = []
+            x, y = x_start, y_start
             while x < img_w and y < img_h:
-                if k3[y, x] > 0:
-                    Wr += 1
-                if Wr > 0 and (x == img_w - 1 or y == img_h - 1 or k3[y, x] <= 0):
-                    pos_x_end, pos_y_end = (x, y) if x == img_w - 1 or y == img_h - 1 else (x - 1, y - 1)
-                    pos_x_start, pos_y_start = pos_x_end - Wr + 1, pos_y_end - Wr + 1
-                    max_k3 = np.max(np.diag(k3[pos_y_start:pos_y_end + 1, pos_x_start:pos_x_end + 1]))
-                    pos_max = np.argmax(np.diag(k3[pos_y_start:pos_y_end + 1, pos_x_start:pos_x_end + 1]))
-                    Vt[pos_y_start + pos_max, pos_x_start + pos_max] += max_k3 * Wr
-                    Wr = 0
+                x_indices.append(x)
+                y_indices.append(y)
                 x += 1
                 y += 1
+                
+            if not x_indices:  # Skip if diagonal is empty
+                continue
+                
+            # Convert to numpy arrays for vectorized operations
+            x_indices = np.array(x_indices)
+            y_indices = np.array(y_indices)
+            diag_values = k3[y_indices, x_indices]
+            
+            # Find positions where k3 > 0
+            positive_mask = diag_values > 0
+            
+            # Find the boundaries of continuous positive regions
+            changes = np.diff(positive_mask.astype(int), prepend=0, append=0)
+            starts = np.where(changes == 1)[0]
+            ends = np.where(changes == -1)[0]
+            
+            # Process each continuous region
+            for s, e in zip(starts, ends):
+                # Get region coordinates
+                region_x = x_indices[s:e]
+                region_y = y_indices[s:e]
+                region = diag_values[s:e]
+                Wr = len(region)
+                
+                if Wr > 0:
+                    # Get max value and its position
+                    max_val = np.max(region)
+                    pos_max = np.argmax(region)
+                    
+                    # Calculate actual position in original array
+                    max_x = region_x[pos_max]
+                    max_y = region_y[pos_max]
+                    
+                    # Update Vt
+                    Vt[max_y, max_x] += max_val * Wr
 
         # Diagonal (/) direction processing
         for start in range(img_h + img_w - 1):
-            x, y = (start, img_h - 1) if start < img_w else (0, img_w + img_h - start - 2)
-            Wr = 0
+            # Get starting position
+            if start < img_w:
+                x_start, y_start = start, img_h - 1
+            else:
+                x_start, y_start = 0, img_w + img_h - start - 2
+                
+            # Get diagonal values
+            x_indices = []
+            y_indices = []
+            x, y = x_start, y_start
             while x < img_w and y >= 0:
-                if k4[y, x] > 0:
-                    Wr += 1
-                if Wr > 0 and (x == img_w - 1 or y == 0 or k4[y, x] <= 0):
-                    pos_x_end, pos_y_end = (x, y) if x == img_w - 1 or y == 0 else (x - 1, y + 1)
-                    pos_x_start, pos_y_start = pos_x_end - Wr + 1, pos_y_end + Wr - 1
-                    max_k4 = np.max(np.diag(np.flipud(k4[pos_y_end:pos_y_start + 1, pos_x_start:pos_x_end + 1])))
-                    pos_max = np.argmax(np.diag(np.flipud(k4[pos_y_end:pos_y_start + 1, pos_x_start:pos_x_end + 1])))
-                    Vt[pos_y_start - pos_max, pos_x_start + pos_max] += max_k4 * Wr
-                    Wr = 0
+                x_indices.append(x)
+                y_indices.append(y)
                 x += 1
                 y -= 1
+                
+            if not x_indices:  # Skip if diagonal is empty
+                continue
+                
+            # Convert to numpy arrays for vectorized operations
+            x_indices = np.array(x_indices)
+            y_indices = np.array(y_indices)
+            diag_values = k4[y_indices, x_indices]
+            
+            # Find positions where k4 > 0
+            positive_mask = diag_values > 0
+            
+            # Find the boundaries of continuous positive regions
+            changes = np.diff(positive_mask.astype(int), prepend=0, append=0)
+            starts = np.where(changes == 1)[0]
+            ends = np.where(changes == -1)[0]
+            
+            # Process each continuous region
+            for s, e in zip(starts, ends):
+                # Get region coordinates
+                region_x = x_indices[s:e]
+                region_y = y_indices[s:e]
+                region = diag_values[s:e]
+                Wr = len(region)
+                
+                if Wr > 0:
+                    # Get max value and its position
+                    max_val = np.max(region)
+                    pos_max = np.argmax(region)
+                    
+                    # Calculate actual position in original array
+                    max_x = region_x[pos_max]
+                    max_y = region_y[pos_max]
+                    
+                    # Update Vt
+                    Vt[max_y, max_x] += max_val * Wr
 
         return Vt

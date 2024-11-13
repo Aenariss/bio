@@ -49,12 +49,10 @@ def pipeline(image, intermediate=False):
 
     result_connected_veins = postprocessor.additional_vein_connections(result_thresholded)
     result_no_mask_edge = postprocessor.remove_mask_edge(result_connected_veins, vein_mask)
-    
-    #result_no_mask_edge = postprocessor.skeletonize(result_no_mask_edge) # do this here or in feature extractor if at all?
 
     if intermediate:
         return image, vein_mask, masked_image, clahe_image, blurred_image, sharp_image, result, result_normalized, result_no_mask_edge
 
-    return result_no_mask_edge
+    return result_no_mask_edge, vein_mask[:, 4:]
 
 

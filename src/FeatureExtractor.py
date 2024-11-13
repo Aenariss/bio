@@ -21,6 +21,12 @@ class FeatureExtractor:
         # Will this be needed? If so, should we do it on skeleton or the original vein image?
         self.removed_artefacts = self.postprocessor.remove_artefacts(self.skeleton, 30)
 
+    def get_skeleton(self):
+        return self.skeleton
+    
+    def get_image(self):
+        return self.vein_image
+
     # Method to extract bifurcations and crossings
     # Because of how our source looks, this may be less accurate than we'd like it to be... still better than nothing ig
     def extract_bifurcations(self):
@@ -95,47 +101,12 @@ class FeatureExtractor:
                         bifurcation_points.append([y, x, shape, direction])
                         # Move to the next neighborhood by skipping over the relevant area
                         x += 1  # Skip to the next potential neighborhood
+                        # y += 1 # check if this woul work better
 
                 x += 1  # Move to the next pixel in the same row
             y += 1  # Move to the next row, this can result in one bifurcation being present several times but should still somehow work
         
         return bifurcation_points  # Return the coordinates of the bifurcation points
-    
-    # Method to extract vein curvature
-    def extract_curvature(self):
-        """
-        This method computes the local curvature at each point of the veins.
-        """
-        # Placeholder: implement curvature extraction
-        curvature_map = np.zeros_like(self.vein_image)  # Dummy value
-        return []
-
-    # Method to extract vein thickness
-    def extract_thickness(self):
-        """
-        This method calculates the thickness of each vein in the image.
-        """
-        # Placeholder: implement vein thickness extraction
-        thickness_map = np.zeros_like(self.vein_image)  # Dummy value
-        return []
-
-    # Method to extract vein orientation (direction of veins)
-    def extract_orientation(self):
-        """
-        This method calculates the orientation of the veins in the image.
-        """
-        # Placeholder: implement vein orientation extraction
-        orientation_map = np.zeros_like(self.vein_image)  # Dummy value
-        return []
-
-    # Method to extract vein density
-    def extract_density(self):
-        """
-        This method computes the vein density, indicating how closely veins are packed.
-        """
-        # Placeholder: implement vein density extraction
-        density_map = np.zeros_like(self.vein_image)  # Dummy value
-        return []
 
     # Method to extract vein endpoints (useful for topological structure)
     def extract_endpoints(self):
@@ -152,19 +123,11 @@ class FeatureExtractor:
         This method creates a feature descriptor by combining various vein features.
         """
         bifurcations = self.extract_bifurcations() # crossings are part of bifurtcations
-        curvature = self.extract_curvature()
-        thickness = self.extract_thickness()
-        orientation = self.extract_orientation()
-        density = self.extract_density()
         endpoints = self.extract_endpoints()
 
         # Combine all features into a descriptor
         descriptor = {
             'bifurcations': bifurcations,
-            'curvature': curvature,
-            'thickness': thickness,
-            'orientation': orientation,
-            'density': density,
             'endpoints': endpoints
         }
         
