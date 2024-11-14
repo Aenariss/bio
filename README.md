@@ -1,10 +1,20 @@
 # BIO 2024/2025 - Extrakce krevního řečiště prstu za pomoci deterministických algoritmů
-Description of our implementation is in the file dokumentace.pdf.
+Description of our implementation is in the file documentation.pdf.
 
-### Folders
-``./data/``      - real scanned fingers from our dataset
-``./src/``       - source code
-``./templates/`` - HTML files for frontend
+### Folder content
+```
+./data/             - real scanned fingers from our dataset
+./src/              - source code
+./templates/        - HTML files for frontend
+./poster/           - folder with data for poster which is generated as HTML. To get the PNG, we zoomed out on a 2560x1440 screen screen
+./poster.png        - poster
+./documentation.pdf - documentation
+./main.py           - main file to run the code
+./frontend.py       - frontend code
+./test.py           - visual comparison of two extracted vein patterns, when using our maximum curvature implementation, the other with BoB
+./requirements.txt  - python modules needed to run the code
+./README.md         - this file
+```
 
 ### Dependencies
 To install the dependecies, you can use ``pip``. The requirements are listed in the file requirements.txt and can be installed with ``pip install ./requirements.txt``.
@@ -25,4 +35,5 @@ The comparison returns the matching score, match result and thresholded it was c
 Our Maximum curvature implementation was compared with the [BOB](https://www.idiap.ch/software/bob/docs/bob/bob.bio.vein/master/sphinx/index.html) reference library. The test shows results we receive from our implementation and the results of the BOB library. User can then visually compare them.
 
 Testing can be run as:
+
 ``python3 ./test.py <path/to/image>``
