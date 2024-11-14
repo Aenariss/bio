@@ -1,4 +1,5 @@
-# BIO 2024/2025 - Extrakce krevního řečiště prstu za pomoci deterministických 
+# BIO 2024/2025 - Extrakce krevního řečiště prstu za pomoci deterministických algoritmů
+Description of our implementation is in the file dokumentace.pdf.
 
 ### Folders
 ``./data/``      - real scanned fingers from our dataset
@@ -24,6 +25,4 @@ The comparison returns the matching score, match result and thresholded it was c
 Our Maximum curvature implementation was compared with the [BOB](https://www.idiap.ch/software/bob/docs/bob/bob.bio.vein/master/sphinx/index.html) reference library. The test shows results we receive from our implementation and the results of the BOB library. User can then visually compare them.
 
 Testing can be run as:
-```
-python3 ./test.py <path/to/image>
-```
+``python3 ./test.py <path/to/image>``

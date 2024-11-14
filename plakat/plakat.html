@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extrahování vzorů žil z ruky</title>
+    <style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f9fc; /* Světle modré pozadí */
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.container {
+    width: 85%;  /* Zvětšení šířky kontejneru na 85% */
+    max-width: 1600px;  /* Maximální šířka pro širší obsah */
+    background-color: white;
+    padding: 40px;  /* Zvýšení vnitřního okraje pro více prostoru kolem obsahu */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    margin: 30px;
+}
+
+header {
+    text-align: center;
+    padding-bottom: 25px;
+    border-bottom: 2px solid #5ca9e6; /* Světle modrá barva pro header */
+}
+
+header h1 {
+    font-size: 4.2em; /* Zvýšení velikosti nadpisu */
+    color: #5ca9e6; /* Světle modrá barva */
+}
+
+header img {
+    max-width: 300px; /* Zmenšení velikosti loga na maximálně 150px */
+    margin-top: 10px;
+}
+
+section {
+    margin-top: 40px;  /* Zvýšení mezery mezi sekcemi */
+}
+
+h2 {
+    font-size: 3.2em; /* Zvýšení velikosti nadpisu sekcí */
+    color: #5ca9e6; /* Světle modrá barva */
+    margin-bottom: 25px;
+}
+
+h3 {
+    font-size: 2em;
+}
+
+.intro {
+    font-size: 2.3em; /* Zvýšení velikosti textu v úvodu */
+    line-height: 1.8;
+    text-align: justify;
+    margin-bottom: 25px;  /* Přidání mezery na konci úvodu */
+}
+
+.image-comparison {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.image-item {
+    width: 42%;  /* Zajištění, že každý obrázek zabírá přibližně 42% šířky kontejneru */
+}
+
+.image-item img {
+    width: 100%;  /* Nastavení šířky obrázku na 100% šířky jeho kontejneru */
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.caption {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 2.1em; /* Zvýšení velikosti textu popisků */
+    color: #555;
+}
+
+.comparison {
+    font-size: 2.3em; /* Zvýšení velikosti textu v sekci analýzy */
+    line-height: 1.8;
+    margin-top: 35px;
+}
+
+.comparison ul {
+    font-size: 2.3em!important;
+    margin-top: 15px;
+    padding-left: 25px;
+}
+
+.comparison ul li {
+    margin-bottom: 15px;
+}
+
+.roc-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 45px;
+}
+
+.roc-container img {
+    width: 80%;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+footer {
+    background-color: #5ca9e6; /* Světle modrá barva pro footer */
+    color: white;
+    text-align: center;
+    padding: 20px;
+    font-size: 2.1em; /* Zvýšení velikosti textu v patičce */
+    margin-top: 10px;
+    border-radius: 8px;
+}
+
+/* Nový styl pro centrální obrázek bifurkací */
+.bifurcation-container {
+    display: flex;
+    flex-direction: column;  /* Nastavení směru obsahu na sloupec (popis nad, obrázek, popis pod) */
+    justify-content: center;
+    align-items: center; /* Vycentrování celého obsahu */
+}
+
+
+.bifurcation-container img {
+    width: 60%; /* Nastavení šířky obrázku na 60% šířky kontejneru */
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bifurcation-container .caption {
+    font-size: 2.2em; /* Zvýšení velikosti textu popisku */
+    color: #555;  /* Mírně tmavší barva pro popis */
+    text-align: center;
+}
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Projekt: Extrakce krevního řečiště prstu za pomoci deterministických algoritmů</h1>
+        <img src="fit_logo.png" alt="Logo fakulty" style="width: 55%;"> <!-- Zde bude prostor pro logo fakulty -->
+    </header>
+
+    <section>
+        <h2>Popis projektu</h2>
+        <p class="intro">
+            Tento projekt se zaměřuje na extrakci vzorů žil z fotografií ruky. Cílem je využít moderní techniky zpracování obrazu k identifikaci žilních vzorců pro účely biometrie. Náš systém je založen na metodě **Maximum Curvature** pro extrakci vzorců žil. Dále tento systém detekuje a analyzuje klíčové rysy jako bifurkace, průsečíky, koncové body a lokální histogramy. K tomu se používá technika porovnání a vyhodnocení pomocí **overlapu** a výkonnosti systému pomocí **ROC křivky**.
+        </p>
+
+        <h2>Výsledky projektu</h2>
+        <div class="image-comparison">
+            <div class="image-item">
+                <h3>Původní obrázek prstu</h3>
+                <img src="01.bmp" alt="Původní obrázek prstu">
+                <p class="caption">Původní obraz ruky.</p>
+            </div>
+            <div class="image-item">
+                <h3>Extrahovaný vzor žil</h3>
+                <img src="finger.png" alt="Extrahovaný vzor žil">
+                <p class="caption">Extrahovaný vzor žil na základě metody Maximum Curvature.</p>
+            </div>
+        </div>
+
+        <div class="bifurcation-container">
+            <h3>Bifurkace a křížení ve vzoru žil</h3>
+            <img src="bifurcations.png" alt="Bifurkace ve vzoru žil">
+            <p class="caption">Zobrazení detekovaných bifurkací a křížení v extrahovaném vzoru žil.</p>
+        </div>
+
+        <h2>Analýza rysů a výkonnost systému</h2>
+        <p class="comparison">
+            Systém využívá metodu **Maximum Curvature** pro extrakci žilních vzorců. Na základě těchto vzorců jsou následně detekovány klíčové rysy:
+            <ul style="font-size: 2em;">
+                <li><strong>Bifurkace:</strong> Místa, kde se žíly rozdvojují.</li>
+                <li><strong>Křížení:</strong> Body, kde se žíly kříží.</li>
+                <li><strong>Koncové body:</strong> Místa, kde žíly končí.</li>
+                <li><strong>Lokální histogramy:</strong> Histogramy, které poskytují informace o textuře a kontrastu vzoru žil.</li>
+            </ul>
+        </p>
+
+        <p style="font-size: 2.3em;">Tyto rysy jsou v případě srovnání dvou různých obrazů porovnávány a vyhodnocovány, dále je vyhodnocen i překryv dvou srovnávaných obrazů. Výsledné skóre porovnání je normalizováno do intervalu <0, 100>, kde 0 je perfektní shoda.</p>
+
+        <h2>Vyhodnocení výkonnosti</h2>
+        <div class="roc-container">
+            <img src="roc.png" alt="ROC Křivka">
+        </div>
+        <p class="caption">ROC křivka ukazující výkonnost systému při detekci žilních vzorců.</p>
+    </section>
+
+    <footer>
+        <p>BIO Projekt 2024. Autoři: Filip Brna & Vojtěch Fiala</p>
+    </footer>
+</div>
+
+</body>
+</html>

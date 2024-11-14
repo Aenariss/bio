@@ -260,13 +260,9 @@ class Comparator:
             # Draw a circle at each coordinate
             cv2.circle(colored_image , (x, y), radius=5, color=(255, 0, 0), thickness=1)
         colored_image = cv2.addWeighted(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR), 1, colored_image, 1, 0)
-        import matplotlib.pyplot as plt
-        plt.tight_layout()
-        plt.imshow(colored_image)
-        plt.title("Zvyraznene Bifurcations a Crossings")
-        plt.axis('off')  # Turn off the axis
-        plt.show()
+        cv2.imwrite("output.png", colored_image)
         '''
+        
         
         # Calculate pairwise Euclidean distances between all points in coords1 and coords2
         diff = coords1[:, None, :] - coords2[None, :, :]
