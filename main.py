@@ -120,27 +120,40 @@ def compare_2_images(img1: str, img2: str):
 
 
 def roc_curve():
-    # Initialize arrays for FPR and TPR with a single threshold
-    FPR = np.array([0,0.03, 0.055, 0.12, 0.185, 0.27, 0.3525, 0.4575, 0.59, 0.69, 0.775, 0.825])  # False Match Rate (False Positive Rate) at threshold
-    TPR = np.array([0,0.61, 0.645, 0.685, 0.755, 0.805, 0.885, 0.94, 0.97, 0.99, 0.995, 1.0])   # True Match Rate (True Positive Rate) at threshold
-    thresholds = np.array([0,60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70])           # Thresholds corresponding to each point
+    # Initialize arrays for FMR and TMR with a single threshold
+    FMR = np.array([0, 0, 0, 0, 0, 0.01, 0.03, 0.055, 0.12, 0.185, 0.2275, 0.27, 0.3525, 0.4575, 0.59, 0.69, 0.775, 0.825, 1])  # False Match Rate (False Positive Rate) at threshold
+    TMR = np.array([0, 0.11, 0.225, 0.405, 0.46, 0.55, 0.61, 0.645, 0.685, 0.755, 0.775, 0.805, 0.885, 0.94, 0.97, 0.99, 0.995, 1.0, 1])   # True Match Rate (True Positive Rate) at threshold
+    FNMR = 1 - TMR
+    TNMR = 1 - FMR
+    
+    thresholds = np.array([0, 40, 50, 55, 57, 59, 60, 61, 62, 63, 63.5, 64, 65, 66, 67, 68, 69, 70, 100])           # Thresholds corresponding to each point
 
 
-    # Plot ROC curve
+    # Set the axes for the ROC curve HERE ###
+    x_axis = FMR
+    y_axis = TMR
+
+    #########################################
+
     plt.figure(figsize=(8, 6))
-    plt.plot(FPR, TPR, marker='o', linestyle='-', color='b', label="ROC Curve")
+    # Plot ROC curve
+    plt.plot(x_axis, y_axis, marker='o', linestyle='-', color='b', label="ROC Curve")
+    plt.plot([], [], ' ', label="Thresholds values")
+    # EER line
+    plt.plot([0, 1], [1, 0], linestyle='--', color='r', label="EER line")
 
+    # Add the Equal Error Rate (EER) point
+    eer = np.argmin(np.abs(FMR - FNMR))
+    plt.plot(FMR[eer], TMR[eer], marker='o', markersize=5, color='r', label=f"EER")
+    
     # Add threshold annotations to each point on the curve
     for i, threshold in enumerate(thresholds):
-        plt.annotate(f'{threshold}', (FPR[i], TPR[i]), 
-                    textcoords="offset points", xytext=(5,-10), ha='center', color="red")
-
-    # Add a dummy point for threshold legend entry
-    plt.plot([], [], ' ', label="Thresholds (in red)")
+        plt.annotate(f'{threshold}', (x_axis[i], y_axis[i]), 
+                    textcoords="offset points", xytext=(13,-10), ha='center', color="blue")
 
     # Label the axes and the plot
-    plt.xlabel("False Positive Rate (FPR)")
-    plt.ylabel("True Positive Rate (TPR)")
+    plt.xlabel("FMR")
+    plt.ylabel("TMR")
     plt.title("Receiver Operating Characteristic (ROC) Curve with corresponding thresholds")
     plt.legend()
     plt.grid()
