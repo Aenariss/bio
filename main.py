@@ -14,6 +14,7 @@ from src.FeatureExtractor import FeatureExtractor
 
 import matplotlib.pyplot as plt
 import argparse
+import numpy as np
 
 def show_results(image_path: str):
     """
@@ -117,12 +118,42 @@ def compare_2_images(img1: str, img2: str):
     print(f"Similarity Score: {score}")
 
 
+
+def roc_curve():
+    # Initialize arrays for FPR and TPR with a single threshold
+    FPR = np.array([0,0.03, 0.055, 0.12, 0.185, 0.27, 0.3525, 0.4575, 0.59, 0.69, 0.775, 0.825])  # False Match Rate (False Positive Rate) at threshold
+    TPR = np.array([0,0.61, 0.645, 0.685, 0.755, 0.805, 0.885, 0.94, 0.97, 0.99, 0.995, 1.0])   # True Match Rate (True Positive Rate) at threshold
+    thresholds = np.array([0,60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70])           # Thresholds corresponding to each point
+
+
+    # Plot ROC curve
+    plt.figure(figsize=(8, 6))
+    plt.plot(FPR, TPR, marker='o', linestyle='-', color='b', label="ROC Curve")
+
+    # Add threshold annotations to each point on the curve
+    for i, threshold in enumerate(thresholds):
+        plt.annotate(f'{threshold}', (FPR[i], TPR[i]), 
+                    textcoords="offset points", xytext=(5,-10), ha='center', color="red")
+
+    # Add a dummy point for threshold legend entry
+    plt.plot([], [], ' ', label="Thresholds (in red)")
+
+    # Label the axes and the plot
+    plt.xlabel("False Positive Rate (FPR)")
+    plt.ylabel("True Positive Rate (TPR)")
+    plt.title("Receiver Operating Characteristic (ROC) Curve with corresponding thresholds")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
 if __name__ == "__main__":
     # Command-line argument parsing for image comparison or result visualization
     parser = argparse.ArgumentParser(description='Finger vein extraction and comparison. The default (no argument) visualizes the image processing pipeline results.')
-    parser.add_argument('-ip', '--image-path', type=str, help='Path to the finger image', required=True)
+    parser.add_argument('-ip', '--image-path', type=str, help='Path to the finger image')
     parser.add_argument('-cw', '--compare-with', type=str, help='Path to the finger image to compare with')
     parser.add_argument('-ca', '--compare-all', action='store_true', help='Compare the given image with all images in the dataset')
+    parser.add_argument('-roc', '--roc-curve', action='store_true', help='Plot the ROC curve for the biometric system')
     args = parser.parse_args()
 
     # Error handling for conflicting arguments
@@ -130,10 +161,16 @@ if __name__ == "__main__":
         parser.error("Cannot use both --compare-with and --compare-all arguments simultaneously.")
         exit(1)
 
+    if not args.image_path and not args.compare_with and not args.compare_all and not args.roc_curve:
+        parser.error("No arguments provided. Please specify an image path, or use --compare-with, --compare-all, or --roc-curve.")
+        exit(1)
+
     # Run the appropriate function based on the arguments
     if args.compare_with:
         compare_2_images(args.image_path, args.compare_with)
     elif args.compare_all:
         Comparator().compare_all(args.image_path)
+    elif args.roc_curve:
+        roc_curve()
     else:
         show_results(args.image_path)
