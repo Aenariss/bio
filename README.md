@@ -24,6 +24,7 @@ To install the dependecies, you can use ``pip``. The requirements are listed in 
 python3 ./main.py -ip <path/to/image> -- Visualizes the intermediate results of the processing pipeline  
 python3 ./main.py -ip <path/to/image> -cw <path/to/image> -- Compares 2 images and determines whether they belong to the same person
 python3 ./main.py -ip <path/to/image> -ca -- Calculate FMR, FNMR, TMR, TNMR. Each 30th image is taken as new image the following images are compared to. Requires dataset to be present in ./data/Person_ID/Finger/Photo_ID.bmp. The link to the dataset is in the documentation.
+python3 ./main.py -roc -- Show ROC curve 
 python3 ./frontend.py -- Launches frontend on address 127.0.0.1:5000.
 ```
 
